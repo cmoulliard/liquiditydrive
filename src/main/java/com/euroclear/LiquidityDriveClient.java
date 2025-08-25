@@ -97,6 +97,7 @@ public class LiquidityDriveClient {
 
         // Call the API to get the bearer token
         String apiToken = getAccessTokenAsync(false).get();
+        logger.debug("API Token: " + apiToken);
 
         // Set up the HTTP client using the client and root ca certificates
         try (CloseableHttpClient httpClient = createHttpClient()) {
@@ -133,8 +134,10 @@ public class LiquidityDriveClient {
                 List<CompletableFuture<Void>> futures = allWork.stream()
                     .map(workItem -> CompletableFuture.runAsync(() -> {
                         try {
-                            processAsyncWithQueue(workItem, httpClient, apiToken, fixedPaths, expandBaseCandidates,
-                                expandFields, writers, headerLine(), outDir, writeQueue);
+                            // processAsyncWithQueue(workItem, httpClient, apiToken, fixedPaths, expandBaseCandidates,
+                            //    expandFields, writers, headerLine(), outDir, writeQueue);
+                            processAsync(workItem, httpClient, apiToken, fixedPaths, expandBaseCandidates,
+                                expandFields, writers, headerLine(), outDir);
                         } catch (Exception e) {
                             logger.error("Error processing {} {}: {}",
                                 workItem.isin, workItem.date, e.getMessage());
@@ -260,12 +263,19 @@ public class LiquidityDriveClient {
 
         StringBuilder localBuffer = new StringBuilder(64 * 1024);
 
-        while (nextUrl != null) {
-            HttpGet request = new HttpGet(nextUrl);
+        while (nextUrl != null && !nextUrl.isEmpty()) {
+            String requestUrl = nextUrl.startsWith("http") ? nextUrl : LIQUIDITY_DRIVE_ADDRESS + nextUrl;
+
+            HttpGet request = new HttpGet(requestUrl);
             request.setHeader("Authorization", "Bearer " + apiToken);
+            request.setHeader("Ocp-Apim-Subscription-Key", API_KEY);
+            request.setHeader("Accept", "application/json");
 
             CloseableHttpResponse response = httpClient.execute(request);
-            String responseBody = EntityUtils.toString(response.getEntity());
+            String responseBody = "";
+            if (response.getEntity() != null) {
+                responseBody = EntityUtils.toString(response.getEntity());
+            }
             response.close();
 
             if (response.getCode() == 204) {
@@ -273,8 +283,18 @@ public class LiquidityDriveClient {
                 break;
             }
 
+            if (response.getCode() == 404) {
+                logger.info("SKIP (ISIN) no data available: {} {} HTTP {}", workItem.isin, workItem.date, response.getCode());
+                break;
+            }
+
             if (response.getCode() != 200) {
                 throw new RuntimeException("HTTP " + response.getCode() + " for " + nextUrl);
+            }
+
+            if (responseBody == null || responseBody.trim().isEmpty()) {
+                logger.info("SKIP (empty response): {} {} HTTP {}", workItem.isin, workItem.date, response.getCode());
+                break;
             }
 
             ObjectMapper mapper = new ObjectMapper();
@@ -293,8 +313,8 @@ public class LiquidityDriveClient {
                         fixedCells.add(formatJsonValue(node));
                     }
 
-                    List<JsonNode> txItems = selectFirstNonEmpty(obj, expandBaseCandidates);
-                    if (txItems.isEmpty()) {
+                    JsonNode txItems = selectFirstNonEmpty(obj, expandBaseCandidates);
+                    if (txItems == null || !txItems.isArray() || txItems.size() == 0) {
                         List<String> row = new ArrayList<>(fixedCells);
                         for (int i = 0; i < expandFields.length; i++) {
                             row.add("");
@@ -305,7 +325,7 @@ public class LiquidityDriveClient {
                             List<String> txVals = new ArrayList<>();
                             for (String field : expandFields) {
                                 JsonNode node = item.at("/" + field.replace(".", "/"));
-                                txVals.add(Parsing.format(node));
+                                txVals.add(formatJsonValue(node));
                             }
                             List<String> row = new ArrayList<>(fixedCells);
                             row.addAll(txVals);

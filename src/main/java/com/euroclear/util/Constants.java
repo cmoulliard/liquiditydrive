@@ -37,7 +37,7 @@ public class Constants {
 
     // Date range for processing
     public static final LocalDate START_DATE = LocalDate.of(2024, 6, 30);
-    public static final LocalDate END_DATE = LocalDate.of(2025, 7, 1);
+    public static final LocalDate END_DATE = LocalDate.of(2025, 7,1);
 
     // public constructor to prevent instantiation
     public Constants() {
