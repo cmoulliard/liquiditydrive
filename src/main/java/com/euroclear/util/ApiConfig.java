@@ -1,6 +1,5 @@
 package com.euroclear.util;
 
-import com.euroclear.LiquidityDriveClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -12,6 +11,7 @@ public class ApiConfig {
     public static String CLIENT_ID;
     public static String APPLICATION_ID;
     public static String CERTIFICATE_FILE_NAME;
+    public static String JAVA_TRUST_STORE;
     public static String CERTIFICATE_PASSWORD;
     public static String API_KEY;
     public static String AUTHORITY;
@@ -19,34 +19,6 @@ public class ApiConfig {
 
     // Per-ISIN endpoint format
     public static final String SINGLE_ENDPOINT_FMT = "/liquidity/v1/securities/%s?referenceDate=%s";
-
-    // Column names
-    public static final String COL_REQUESTED_ISIN = "RequestedISIN";
-    public static final String COL_REQUESTED_DATE = "RequestedDate";
-
-    // CSV delimiter
-    public static final char DELIM = ';';
-
-    // Expand field candidates for transaction data
-    public static final String[] EXPAND_BASE_CANDIDATES = {
-        "transactions"
-    };
-
-    // Specific transaction fields to extract
-    public static final String[] EXPAND_FIELDS = {
-        "transactionId",
-        "transactionDate",
-        "settlementDate",
-        "transactionType",
-        "transactionStatus",
-        "quantity",
-        "quantityUnit",
-        "cashAmount",
-        "cashSettlementCurrency",
-        "grossSettlementPrice",
-        "receivingPartyType",
-        "deliveringPartyType"
-    };
 
     // Date range for processing
     public static final LocalDate START_DATE = LocalDate.of(2023, 6,29);
@@ -63,6 +35,8 @@ public class ApiConfig {
         API_KEY = getEnvOrExit("API_KEY");
         AUTHORITY = getEnvOrExit("AUTHORITY");
         CERTIFICATE_FILE_NAME = getEnvOrExit("CERTIFICATE_FILE_NAME");
+        LIQUIDITY_DRIVE_ADDRESS = getEnvOrExit("LIQUIDITY_DRIVE_ADDRESS");
+        JAVA_TRUST_STORE = getEnvOrExit("JAVA_TRUST_STORE");
     }
 
     public static String getEnvOrExit(String name) {

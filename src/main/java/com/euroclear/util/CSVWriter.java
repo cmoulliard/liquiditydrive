@@ -1,17 +1,34 @@
 package com.euroclear.util;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 
 public class CSVWriter implements Closeable, Flushable {
 
     private final BufferedWriter writer;
 
-    public CSVWriter(File file) throws IOException {
-        this.writer = new BufferedWriter(new FileWriter(file, true)); // append mode
+    /**
+     * Modern constructor using java.nio.Path. This is the recommended one to use.
+     * It uses UTF-8 encoding and handles file creation/appending safely.
+     * @param path The path to the output file.
+     * @throws IOException
+     */
+    public CSVWriter(Path path) throws IOException {
+        this.writer = Files.newBufferedWriter(path, StandardCharsets.UTF_8,
+            StandardOpenOption.CREATE, StandardOpenOption.APPEND);
     }
 
-    public CSVWriter(Writer writer) {
-        this.writer = new BufferedWriter(writer);
+    /**
+     * Legacy constructor using java.io.File.
+     * @param file The file to write to.
+     * @throws IOException
+     */
+    public CSVWriter(File file) throws IOException {
+        // This constructor now delegates to the Path constructor for consistency.
+        this(file.toPath());
     }
 
     /**

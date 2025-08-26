@@ -8,12 +8,14 @@ import java.nio.file.Path;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
-import static com.euroclear.util.ApiConfig.DELIM;
+import static com.euroclear.util.LiquidityRecord.DELIM;
+import static com.euroclear.util.LiquidityRecord.headerLine;
 
 public class Parsing {
     private static final Set<String> headersWritten = ConcurrentHashMap.newKeySet();
@@ -39,6 +41,23 @@ public class Parsing {
                 throw new RuntimeException("Failed to create writer for " + k, e);
             }
         });
+    }
+
+    public static Map<String, CSVWriter> createMonthlyWriters(LocalDate start, LocalDate end, Path outDir) throws IOException {
+        Map<String, CSVWriter> writers = new HashMap<>();
+        LocalDate current = start;
+        while (!current.isAfter(end)) {
+            String monthKey = current.format(DateTimeFormatter.ofPattern("yyyy-MM"));
+            if (!writers.containsKey(monthKey)) {
+                Path filePath = outDir.resolve(monthKey + ".csv");
+                CSVWriter writer = new CSVWriter(filePath);
+                // Add the header line
+                writer.writeLine(headerLine());
+                writers.put(monthKey, writer);
+            }
+            current = current.plusMonths(1);
+        }
+        return writers;
     }
 
     public static Stream<LocalDate> eachBusinessDay(LocalDate start, LocalDate end, Set<LocalDate> holidays) {
