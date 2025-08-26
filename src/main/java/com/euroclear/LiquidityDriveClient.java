@@ -12,8 +12,7 @@ import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
 import org.apache.hc.core5.http.HttpStatus;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.jboss.logging.Logger;
 
 import java.io.IOException;
 import java.net.URLEncoder;
@@ -42,7 +41,7 @@ import static com.euroclear.util.Parsing.*;
  */
 public class LiquidityDriveClient {
 
-    private static final Logger logger = LoggerFactory.getLogger(LiquidityDriveClient.class);
+    private static final Logger logger = Logger.getLogger(LiquidityDriveClient.class);
 
     private static IConfidentialClientApplication app;
     private static Set<String> scopes;
@@ -52,7 +51,7 @@ public class LiquidityDriveClient {
         .registerModule(new JavaTimeModule());
 
     public static void main(String[] args) throws Exception {
-        logger.info("Starting Euroclear Liquidity Drive Client");
+        logger.infof("Starting Euroclear Liquidity Drive Client");
 
         // Load external env variables to set the sensitive information
         loadEnvironmentVariables();
@@ -119,7 +118,7 @@ public class LiquidityDriveClient {
                                 }, FIXED_PATHS, expandBaseCandidates,
                                 expandFields, writers, headerLine(), outDir);
                         } catch (Exception e) {
-                            logger.error("Error processing {} {}: {}",
+                            logger.errorf("Error processing %s %s: %s",
                                 workItem.isin(), workItem.date(), e.getMessage());
                             e.printStackTrace();
                             throw new RuntimeException(e);
@@ -141,7 +140,7 @@ public class LiquidityDriveClient {
                     }
                 });
 
-                logger.info("Monthly CSVs written to: {}", outDir);
+                logger.infof("Monthly CSVs written to: %s", outDir);
                 processingDuration(startTime);
             }
         }
@@ -172,32 +171,32 @@ public class LiquidityDriveClient {
                 if (response.getEntity() != null) {
                     bodyText = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
                     if (bodyText == null || bodyText.trim().isEmpty()) {
-                        logger.info("SKIP (no JSON): {} {} HTTP {}", workItem.isin(), workItem.date(), response.getCode());
+                        logger.infof("SKIP (no JSON): %s %s HTTP %s", workItem.isin(), workItem.date(), response.getCode());
                         break;
                     }
                 } else {
-                    logger.info("SKIP (ISIN) as no content found: {} {} HTTP {}", workItem.isin(), workItem.date(), response.getCode());
+                    logger.infof("SKIP (ISIN) as no content found: %s %s HTTP %s", workItem.isin(), workItem.date(), response.getCode());
                     break;
                 }
 
-                logger.debug("HTTP {} Body for {} {}:\n{}", response.getCode(), workItem.isin(), workItem.date(), bodyText);
+                logger.debugf("HTTP %s Body for %s %s:\n%s", response.getCode(), workItem.isin(), workItem.date(), bodyText);
 
                 if (response.getCode() != HttpStatus.SC_OK) {
                     if (response.getCode() == HttpStatus.SC_NO_CONTENT) {
-                        logger.info("SKIP (Content not found for ISIN): {} {}", workItem.isin(), workItem.date());
+                        logger.infof("SKIP (Content not found for ISIN): %s %s", workItem.isin(), workItem.date());
                         break;
                     }
 
                     if (response.getCode() == HttpStatus.SC_UNAUTHORIZED &&
                         bodyText.toLowerCase().contains("invalid Euroclear Liquidity subscription")) {
-                        logger.info("SKIP (not entitled): {} {}", workItem.isin(), workItem.date());
+                        logger.infof("SKIP (not entitled): %s %s", workItem.isin(), workItem.date());
                         break;
                     }
 
                     if (response.getCode() == HttpStatus.SC_NOT_FOUND ||
                         (response.getCode() == HttpStatus.SC_BAD_REQUEST &&
                             bodyText.toLowerCase().contains("not found"))) {
-                        logger.info("SKIP (ISIN not found): {} {}", workItem.isin(), workItem.date());
+                        logger.infof("SKIP (ISIN not found): %s %s", workItem.isin(), workItem.date());
                         break;
                     }
 
@@ -256,9 +255,9 @@ public class LiquidityDriveClient {
                 try {
                     AsyncCSVWriter writer = getMonthlyWriter(workItem.date(), writers, headerLine, outDir);
                     writer.write(bufferContent);
-                    logger.info("Processed ISIN {} on {}", workItem.isin(), workItem.date());
+                    logger.infof("Processed ISIN %s on %s", workItem.isin(), workItem.date());
                 } catch (IOException e) {
-                    logger.error("Error writing to file for {} {}", workItem.isin(), workItem.date(), e);
+                    logger.errorf("Error writing to file for %s %s", workItem.isin(), workItem.date(), e);
                 }
             });
         }
@@ -290,32 +289,32 @@ public class LiquidityDriveClient {
                 if (response.getEntity() != null) {
                     bodyText = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
                     if (bodyText == null || bodyText.trim().isEmpty()) {
-                        logger.info("SKIP (no JSON): {} {} HTTP {}", workItem.isin(), workItem.date(), response.getCode());
+                        logger.infof("SKIP (no JSON): %s %s HTTP %s", workItem.isin(), workItem.date(), response.getCode());
                         break;
                     }
                 } else {
-                    logger.info("SKIP (ISIN) as no content found: {} {} HTTP {}", workItem.isin(), workItem.date(), response.getCode());
+                    logger.infof("SKIP (ISIN) as no content found: %s %s HTTP %s", workItem.isin(), workItem.date(), response.getCode());
                     break;
                 }
 
-                logger.debug("HTTP {} Body for {} {}:\n{}", response.getCode(), workItem.isin(), workItem.date(), bodyText);
+                logger.debugf("HTTP %s Body for %s %s:\n%s", response.getCode(), workItem.isin(), workItem.date(), bodyText);
 
                 if (response.getCode() != HttpStatus.SC_OK) {
                     if (response.getCode() == HttpStatus.SC_NO_CONTENT) {
-                        logger.info("SKIP (Content not found for ISIN): {} {}", workItem.isin(), workItem.date());
+                        logger.infof("SKIP (Content not found for ISIN): %s %s", workItem.isin(), workItem.date());
                         break;
                     }
 
                     if (response.getCode() == HttpStatus.SC_UNAUTHORIZED &&
                         bodyText.toLowerCase().contains("invalid Euroclear Liquidity subscription")) {
-                        logger.info("SKIP (not entitled): {} {}", workItem.isin(), workItem.date());
+                        logger.infof("SKIP (not entitled): %s %s", workItem.isin(), workItem.date());
                         break;
                     }
 
                     if (response.getCode() == HttpStatus.SC_NOT_FOUND ||
                         (response.getCode() == HttpStatus.SC_BAD_REQUEST &&
                             bodyText.toLowerCase().contains("not found"))) {
-                        logger.info("SKIP (ISIN not found): {} {}", workItem.isin(), workItem.date());
+                        logger.infof("SKIP (ISIN not found): %s %s", workItem.isin(), workItem.date());
                         break;
                     }
 
@@ -370,7 +369,7 @@ public class LiquidityDriveClient {
         if (localBuffer.length() > 0) {
             AsyncCSVWriter writer = getMonthlyWriter(workItem.date(), writers, headerLine, outDir);
             writer.write(localBuffer.toString());
-            logger.info("Processed ISIN {} on {}", workItem.isin(), workItem.date());
+            logger.infof("Processed ISIN %s on %s", workItem.isin(), workItem.date());
         }
     }
 }

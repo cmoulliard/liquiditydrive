@@ -27,7 +27,7 @@ public class LiquidityResponse {
     private List<Transaction> transactions;
 
     // No-arg constructor for Jackson
-    public LiquidityResponse() {}
+    public LiquidityResponse(){}
 
     // Constructor to initialize all fields
     public LiquidityResponse(String referenceDate, String compositeLiquidityScore, String concentrationWeightedLiquidityScore, String holdingScore, String turnoverScore, String isin, String amountType, String ecbTiering, String ecbHaircut, String optionFlag, String zeroCouponFlag, String couponPaymentDate, String couponRecordDate, String interestPeriodStartDate, String interestPeriodEndDate, String couponPaymentFrequency, String rateType, String couponInterestRate, String couponGrossAmount, AggregatedHoldingData aggregatedHoldingData, AggregatedTransactionData aggregatedTransactionData, List<Transaction> transactions) {

@@ -20,7 +20,7 @@ public class Transaction {
     @JsonProperty("receivingPartyType") private String receivingPartyType;
     @JsonProperty("deliveringPartyType") private String deliveringPartyType;
 
-    public Transaction() {}
+    public Transaction(){}
 
     public Transaction(String transactionId, OffsetDateTime transactionDate, OffsetDateTime settlementDate, String transactionType, String transactionStatus, BigDecimal quantity, String quantityUnit, BigDecimal cashAmount, String cashSettlementCurrency, BigDecimal grossSettlementPrice, String receivingPartyType, String deliveringPartyType) {
         this.transactionId = transactionId;

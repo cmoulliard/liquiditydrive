@@ -1,8 +1,7 @@
 package com.euroclear;
 
 import com.euroclear.util.CSVWriter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.jboss.logging.Logger;
 
 import java.io.Flushable;
 import java.io.IOException;
@@ -14,7 +13,7 @@ import java.util.concurrent.*;
  * before close() returns.
  */
 public class AsyncCSVWriter implements AutoCloseable, Flushable {
-    private static final Logger logger = LoggerFactory.getLogger(AsyncCSVWriter.class);
+    private static final Logger logger = Logger.getLogger(AsyncCSVWriter.class);
     private final CSVWriter writer;
     private final BlockingQueue<String> queue = new LinkedBlockingQueue<>();
     private final Thread thread;

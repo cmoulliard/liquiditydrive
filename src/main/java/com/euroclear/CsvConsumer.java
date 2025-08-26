@@ -5,8 +5,7 @@ import com.euroclear.util.Parsing;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.jboss.logging.Logger;
 
 import java.io.IOException;
 import java.time.format.DateTimeFormatter;
@@ -22,7 +21,7 @@ import static com.euroclear.util.Parsing.formatJsonValue;
 import static com.euroclear.util.Parsing.selectFirstNonEmpty;
 
 public class CsvConsumer implements Runnable {
-    private static final Logger logger = LoggerFactory.getLogger(CsvConsumer.class);
+    private static final Logger logger = Logger.getLogger(CsvConsumer.class);
 
     private final BlockingQueue<QueueItem> queue;
     private final Map<String, CSVWriter> writers;
@@ -41,7 +40,7 @@ public class CsvConsumer implements Runnable {
 
     @Override
     public void run() {
-        logger.info("Started consumer thread");
+        logger.infof("Started consumer thread");
 
         try {
             // The consumer will loop and take items from the queue.
@@ -100,10 +99,10 @@ public class CsvConsumer implements Runnable {
                     buffer.append(row.stream().map(Parsing::escapeCSV).collect(Collectors.joining(String.valueOf(DELIM)))).append("\n");
                 }
             }
-            logger.debug("Processing : " + buffer);
+            logger.debugf("Processing: %s" + buffer);
 
         } catch (IOException e) {
-            logger.error("Error processing JSON for ISIN {} on {}: {}", item.isin(), item.date(), e.getMessage());
+            logger.errorf("Error processing JSON for ISIN %s on %s: %s", item.isin(), item.date(), e.getMessage());
         }
     }
 
@@ -112,7 +111,7 @@ public class CsvConsumer implements Runnable {
             CSVWriter writer = writers.get(entry.getKey());
             if (writer != null && entry.getValue().length() > 0) {
                 // This log will tell you if the consumer is actually receiving data to write
-                logger.debug("Writing {} bytes to file for month {}", entry.getValue().length(), entry.getKey());
+                logger.debugf("Writing %s bytes to file for month %s", entry.getValue().length(), entry.getKey());
 
                 try {
                     synchronized (writer) {
@@ -120,7 +119,7 @@ public class CsvConsumer implements Runnable {
                         writer.flush();
                     }
                 } catch (IOException e) {
-                    logger.error("Error writing to file for month {}: {}", entry.getKey(), e.getMessage());
+                    logger.errorf("Error writing to file for month %s: %s", entry.getKey(), e.getMessage());
                 }
             }
         }

@@ -1,12 +1,11 @@
 package com.euroclear.util;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.jboss.logging.Logger;
 
 import java.time.LocalDate;
 
 public class ApiConfig {
-    private static final Logger logger = LoggerFactory.getLogger(ApiConfig.class);
+    private static final Logger logger = Logger.getLogger(ApiConfig.class);
 
     public static String CLIENT_ID;
     public static String APPLICATION_ID;
@@ -42,7 +41,7 @@ public class ApiConfig {
     public static String getEnvOrExit(String name) {
         String value = System.getenv(name);
         if (value == null || value.trim().isEmpty()) {
-            logger.error("Required environment variable '{}' is not set. Exiting.", name);
+            logger.errorf("Required environment variable '%s' is not set. Exiting.", name);
             System.exit(1);
         }
         return value;

@@ -1,6 +1,5 @@
 package com.euroclear.util;
 
-import com.euroclear.LiquidityDriveClient;
 import com.microsoft.aad.msal4j.*;
 import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.config.TlsConfig;
@@ -13,8 +12,7 @@ import org.apache.hc.client5.http.ssl.TlsSocketStrategy;
 import org.apache.hc.core5.http.ssl.TLS;
 import org.apache.hc.core5.ssl.SSLContexts;
 import org.apache.hc.core5.util.Timeout;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.jboss.logging.Logger;
 
 import javax.net.ssl.SSLContext;
 import java.io.FileInputStream;
@@ -33,7 +31,7 @@ import static com.euroclear.util.ApiConfig.AUTHORITY;
 
 public class Authentication {
 
-    private static final Logger logger = LoggerFactory.getLogger(Authentication.class);
+    private static final Logger logger = Logger.getLogger(Authentication.class);
 
     private static final Semaphore tokenGate = new Semaphore(1);
     private static final AtomicReference<IAuthenticationResult> cachedAuth = new AtomicReference<>();
@@ -142,24 +140,24 @@ public class Authentication {
             if ("AADSTS7000215".equals(errorCode) ||
                 (message != null && message.contains("Invalid client secret"))) {
 
-                logger.error("=== AUTHENTICATION FAILURE ===");
-                logger.error("Invalid client secret provided.");
-                logger.error("Error Code: {}", errorCode);
-                logger.error("Error Message: {}", message);
-                logger.error("Please check your client secret configuration.");
-                logger.error("Ensure you're using the client secret VALUE, not the client secret ID.");
-                logger.error("Application will exit.");
+                logger.errorf("=== AUTHENTICATION FAILURE ===");
+                logger.errorf("Invalid client secret provided.");
+                logger.errorf("Error Code: %s", errorCode);
+                logger.errorf("Error Message: %s", message);
+                logger.errorf("Please check your client secret configuration.");
+                logger.errorf("Ensure you're using the client secret VALUE, not the client secret ID.");
+                logger.errorf("Application will exit.");
 
                 throw new RuntimeException("Failed to authenticate with client secret ID");
             }
 
             // Handle other MSAL authentication errors
             if (errorCode != null && errorCode.startsWith("AADSTS")) {
-                logger.error("=== AZURE AD AUTHENTICATION ERROR ===");
-                logger.error("Error Code: {}", errorCode);
-                logger.error("Error Message: {}", message);
-                logger.error("Please check your Azure AD configuration and credentials.");
-                logger.error("Application will exit.");
+                logger.errorf("=== AZURE AD AUTHENTICATION ERROR ===");
+                logger.errorf("Error Code: %s", errorCode);
+                logger.errorf("Error Message: %s", message);
+                logger.errorf("Please check your Azure AD configuration and credentials.");
+                logger.errorf("Application will exit.");
 
                 throw new RuntimeException("Failed to authenticate with Azure AD configuration and credentials.");
             }
@@ -171,10 +169,10 @@ public class Authentication {
                 e.getMessage().contains("unauthorized") ||
                 e.getMessage().contains("invalid_client"))) {
 
-            logger.error("=== AUTHENTICATION ERROR ===");
-            logger.error("Authentication failed: {}", e.getMessage());
-            logger.error("Please verify your credentials and configuration.");
-            logger.error("Application will exit.");
+            logger.errorf("=== AUTHENTICATION ERROR ===");
+            logger.errorf("Authentication failed: %s", e.getMessage());
+            logger.errorf("Please verify your credentials and configuration.");
+            logger.errorf("Application will exit.");
 
             // Exit gracefully
             throw new RuntimeException("Failed to authenticate with your configuration and credentials.");

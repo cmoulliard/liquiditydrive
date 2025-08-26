@@ -15,7 +15,7 @@ public class AggregatedTransactionData {
     @JsonProperty("medianGrossSettlementPriceEur") private BigDecimal medianGrossSettlementPriceEur;
     @JsonProperty("settlementVWAPEur") private BigDecimal settlementVWAPEur;
 
-    public AggregatedTransactionData() {}
+    public AggregatedTransactionData(){}
 
     public AggregatedTransactionData(Volume totalVolCurrentBD, Volume totalVolNext1BD, Volume totalVolNext2BD, int transactionCount, BigDecimal averageTicketSizeEur, BigDecimal averageGrossSettlementPriceEur, BigDecimal medianTicketSizeEur, BigDecimal medianGrossSettlementPriceEur, BigDecimal settlementVWAPEur) {
         this.totalVolCurrentBD = totalVolCurrentBD;

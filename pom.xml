@@ -86,7 +86,7 @@
             <version>${jackson.version}</version>
         </dependency>
 
-        <!-- SLF4J for logging -->
+        <!-- SLF4J for logging
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
@@ -97,6 +97,7 @@
             <artifactId>logback-classic</artifactId>
             <version>1.4.8</version>
         </dependency>
+        -->
 
         <!-- JUnit 5 for testing -->
         <dependency>

@@ -14,7 +14,7 @@ public class AggregatedHoldingData {
     @JsonProperty("medianHoldingSizeEur") private BigDecimal medianHoldingSizeEur;
     @JsonProperty("medianHoldingSizeMarketValueEur") private BigDecimal medianHoldingSizeMarketValueEur;
 
-    public AggregatedHoldingData() {}
+    public AggregatedHoldingData(){}
 
     public AggregatedHoldingData(BigDecimal freeFloatHolding, BigDecimal freeFloatHoldingEur, BigDecimal freeFloatMarketValueEur, double concentration, BigDecimal averageHoldingSizeEur, BigDecimal averageHoldingSizeMarketValueEur, BigDecimal medianHoldingSizeEur, BigDecimal medianHoldingSizeMarketValueEur) {
         this.freeFloatHolding = freeFloatHolding;

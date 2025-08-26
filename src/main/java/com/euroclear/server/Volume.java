@@ -7,7 +7,7 @@ import java.math.BigDecimal;
 public class Volume {
     @JsonProperty("volumeEur") private BigDecimal volumeEur;
 
-    public Volume() {}
+    public Volume(){}
 
     public Volume(BigDecimal volumeEur) {
         this.volumeEur = volumeEur;
