@@ -5,7 +5,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static com.euroclear.util.Constants.*;
+import static com.euroclear.util.ApiConfig.*;
 
 public class LiquidityRecord {
     private static List<String> headerCols = new ArrayList<>();

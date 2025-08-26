@@ -4,8 +4,6 @@ import com.euroclear.AsyncCSVWriter;
 import com.fasterxml.jackson.databind.JsonNode;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -15,7 +13,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
-import static com.euroclear.util.Constants.DELIM;
+import static com.euroclear.util.ApiConfig.DELIM;
 
 public class Parsing {
     private static final Set<String> headersWritten = ConcurrentHashMap.newKeySet();

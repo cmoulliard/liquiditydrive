@@ -1,6 +1,6 @@
 package com.euroclear;
 
-import com.euroclear.util.Constants;
+import com.euroclear.util.ApiConfig;
 import com.euroclear.util.Parsing;
 import com.euroclear.util.WorkItem;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -40,10 +40,11 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static com.euroclear.util.ApiConfig.*;
-import static com.euroclear.util.Constants.DELIM;
+import static com.euroclear.util.ApiConfig.DELIM;
 import static com.euroclear.util.ISIN.ISINS;
 import static com.euroclear.util.LiquidityRecord.*;
 import static com.euroclear.util.Parsing.*;
@@ -66,6 +67,9 @@ public class LiquidityDriveClient {
     public static void main(String[] args) throws Exception {
         logger.info("Starting Euroclear Liquidity Drive Client");
 
+        // Load external env variables to set the sensitive information
+        loadEnvironmentVariables();
+
         // Create the output folder
         Path outDir = Paths.get(System.getProperty("user.dir"), "out");
         Files.createDirectories(outDir);
@@ -74,11 +78,11 @@ public class LiquidityDriveClient {
         Instant startTime = Instant.now();
 
         // Use constants from utility class
-        String[] expandBaseCandidates = Constants.EXPAND_BASE_CANDIDATES;
-        String[] expandFields = Constants.EXPAND_FIELDS;
+        String[] expandBaseCandidates = ApiConfig.EXPAND_BASE_CANDIDATES;
+        String[] expandFields = ApiConfig.EXPAND_FIELDS;
         String[] isins = ISINS;
-        LocalDate start = Constants.START_DATE;
-        LocalDate end = Constants.END_DATE;
+        LocalDate start = ApiConfig.START_DATE;
+        LocalDate end = ApiConfig.END_DATE;
 
         List<LocalDate> dates = eachBusinessDay(start, end, null).collect(Collectors.toList());
 
@@ -96,29 +100,13 @@ public class LiquidityDriveClient {
         setupAuthentication();
 
         // Call the API to get the bearer token
-        String apiToken = getAccessTokenAsync(false).get();
-        logger.debug("API Token: " + apiToken);
+        //String apiToken = getAccessTokenAsync(false).get();
+        //logger.debug("API Token: " + apiToken);
 
         // Set up the HTTP client using the client and root ca certificates
         try (CloseableHttpClient httpClient = createHttpClient()) {
 
             Map<String, AsyncCSVWriter> writers = new ConcurrentHashMap<>();
-
-            // Create a queue for processed results (producer-consumer pattern)
-            BlockingQueue<Runnable> writeQueue = new LinkedBlockingQueue<>();
-            ExecutorService writeExecutor = Executors.newSingleThreadExecutor();
-
-            // Start the single writer thread
-            writeExecutor.submit(() -> {
-                try {
-                    while (!Thread.currentThread().isInterrupted()) {
-                        Runnable writeTask = writeQueue.take();
-                        writeTask.run();
-                    }
-                } catch (InterruptedException e) {
-                    // Shutting down
-                }
-            });
 
             // Process work items in parallel
             int cores = Runtime.getRuntime().availableProcessors();
@@ -134,9 +122,18 @@ public class LiquidityDriveClient {
                 List<CompletableFuture<Void>> futures = allWork.stream()
                     .map(workItem -> CompletableFuture.runAsync(() -> {
                         try {
-                            // processAsyncWithQueue(workItem, httpClient, apiToken, fixedPaths, expandBaseCandidates,
-                            //    expandFields, writers, headerLine(), outDir, writeQueue);
-                            processAsync(workItem, httpClient, apiToken, fixedPaths, expandBaseCandidates,
+                            processAsync(workItem, httpClient, () -> {
+                                    try {
+                                        return getAccessTokenAsync(false).get();
+                                    } catch (InterruptedException | ExecutionException e) {
+                                        // Best practice: re-wrap checked exceptions as an unchecked exception
+                                        // InterruptedException is a signal to stop processing.
+                                        if (e instanceof InterruptedException) {
+                                            Thread.currentThread().interrupt();
+                                        }
+                                        throw new RuntimeException("Failed to acquire token", e);
+                                    }
+                                }, fixedPaths, expandBaseCandidates,
                                 expandFields, writers, headerLine(), outDir);
                         } catch (Exception e) {
                             logger.error("Error processing {} {}: {}",
@@ -151,21 +148,6 @@ public class LiquidityDriveClient {
 
             } finally {
                 executor.shutdown();
-                
-                // Shutdown the writer executor and drain the queue
-                writeExecutor.shutdownNow();
-                
-                // Process any remaining write tasks in the queue
-                while (!writeQueue.isEmpty()) {
-                    try {
-                        Runnable task = writeQueue.poll();
-                        if (task != null) {
-                            task.run();
-                        }
-                    } catch (Exception e) {
-                        logger.error("Error processing remaining write task", e);
-                    }
-                }
 
                 // Close all writers
                 writers.values().forEach(writer -> {
@@ -271,81 +253,86 @@ public class LiquidityDriveClient {
             request.setHeader("Ocp-Apim-Subscription-Key", API_KEY);
             request.setHeader("Accept", "application/json");
 
-            CloseableHttpResponse response = httpClient.execute(request);
-            String responseBody = "";
-            if (response.getEntity() != null) {
-                responseBody = EntityUtils.toString(response.getEntity());
-            }
-            response.close();
+            try (CloseableHttpResponse response = httpClient.execute(request)) {
+                String bodyText = "";
 
-            if (response.getCode() == 204) {
-                logger.info("SKIP (ISIN) as no content found: {} {} HTTP {}", workItem.isin, workItem.date, response.getCode());
-                break;
-            }
+                if (response.getEntity() != null) {
+                    bodyText = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+                    if (bodyText == null || bodyText.trim().isEmpty()) {
+                        logger.info("SKIP (no JSON): {} {} HTTP {}", workItem.isin, workItem.date, response.getCode());
+                        break;
+                    }
+                } else {
+                    logger.info("SKIP (ISIN) as no content found: {} {} HTTP {}", workItem.isin, workItem.date, response.getCode());
+                    break;
+                }
 
-            if (response.getCode() == 404) {
-                logger.info("SKIP (ISIN) no data available: {} {} HTTP {}", workItem.isin, workItem.date, response.getCode());
-                break;
-            }
+                logger.debug("HTTP {} Body for {} {}:\n{}", response.getCode(), workItem.isin, workItem.date, bodyText);
 
-            if (response.getCode() != 200) {
-                throw new RuntimeException("HTTP " + response.getCode() + " for " + nextUrl);
-            }
-
-            if (responseBody == null || responseBody.trim().isEmpty()) {
-                logger.info("SKIP (empty response): {} {} HTTP {}", workItem.isin, workItem.date, response.getCode());
-                break;
-            }
-
-            ObjectMapper mapper = new ObjectMapper();
-            mapper.registerModule(new JavaTimeModule());
-            JsonNode json = mapper.readTree(responseBody);
-
-            JsonNode dataArray = json.get("data");
-            if (dataArray != null && dataArray.isArray()) {
-                for (JsonNode obj : dataArray) {
-                    List<String> fixedCells = new ArrayList<>();
-                    fixedCells.add(workItem.isin);
-                    fixedCells.add(workItem.date.toString());
-
-                    for (String path : fixedPaths) {
-                        JsonNode node = obj.at("/" + path.replace(".", "/"));
-                        fixedCells.add(formatJsonValue(node));
+                if (response.getCode() != HttpStatus.SC_OK) {
+                    if (response.getCode() == HttpStatus.SC_NO_CONTENT) {
+                        logger.info("SKIP (Content not found for ISIN): {} {}", workItem.isin, workItem.date);
+                        break;
                     }
 
+                    if (response.getCode() == HttpStatus.SC_UNAUTHORIZED &&
+                        bodyText.toLowerCase().contains("invalid Euroclear Liquidity subscription")) {
+                        logger.info("SKIP (not entitled): {} {}", workItem.isin, workItem.date);
+                        break;
+                    }
+
+                    if (response.getCode() == HttpStatus.SC_NOT_FOUND ||
+                        (response.getCode() == HttpStatus.SC_BAD_REQUEST &&
+                            bodyText.toLowerCase().contains("not found"))) {
+                        logger.info("SKIP (ISIN not found): {} {}", workItem.isin, workItem.date);
+                        break;
+                    }
+
+                    throw new RuntimeException("GET failed: " + response.getCode() + " " + bodyText);
+                }
+
+                JsonNode json = objectMapper.readTree(bodyText);
+
+                List<JsonNode> pageObjects = new ArrayList<>();
+                if (json.isObject()) {
+                    pageObjects.add(json);
+                } else if (json.isArray()) {
+                    json.forEach(pageObjects::add);
+                }
+
+                for (JsonNode obj : pageObjects) {
+                    List<String> fixedCells = new ArrayList<>();
+                    fixedCells.add(workItem.isin);
+                    fixedCells.add(workItem.date.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")));
+
+                    for (String path : fixedPaths) {
+                        fixedCells.add(formatJsonValue(obj.at("/" + path.replace(".", "/").replace("['", "/").replace("']", ""))));
+                    }
+
+                    // Handle transaction details
                     JsonNode txItems = selectFirstNonEmpty(obj, expandBaseCandidates);
                     if (txItems == null || !txItems.isArray() || txItems.size() == 0) {
                         List<String> row = new ArrayList<>(fixedCells);
                         for (int i = 0; i < expandFields.length; i++) {
                             row.add("");
                         }
-                        localBuffer.append(row.stream().map(Parsing::escapeCSV).collect(Collectors.joining(String.valueOf(DELIM)))).append(System.lineSeparator());
+                        localBuffer.append(row.stream().map(Parsing::escapeCSV)
+                            .collect(Collectors.joining(String.valueOf(DELIM)))).append("\n");
                     } else {
                         for (JsonNode item : txItems) {
-                            List<String> txVals = new ArrayList<>();
-                            for (String field : expandFields) {
-                                JsonNode node = item.at("/" + field.replace(".", "/"));
-                                txVals.add(formatJsonValue(node));
-                            }
                             List<String> row = new ArrayList<>(fixedCells);
-                            row.addAll(txVals);
-                            localBuffer.append(row.stream().map(Parsing::escapeCSV).collect(Collectors.joining(String.valueOf(DELIM)))).append(System.lineSeparator());
+                            for (String field : expandFields) {
+                                row.add(formatJsonValue(item.get(field)));
+                            }
+                            localBuffer.append(row.stream().map(Parsing::escapeCSV)
+                                .collect(Collectors.joining(String.valueOf(DELIM)))).append("\n");
                         }
                     }
                 }
 
-                JsonNode linksNode = json.get("links");
-                nextUrl = null;
-                if (linksNode != null && linksNode.isArray()) {
-                    for (JsonNode link : linksNode) {
-                        if ("nextPage".equals(link.get("rel").asText())) {
-                            nextUrl = link.get("href").asText();
-                            break;
-                        }
-                    }
-                }
-            } else {
-                break;
+                // Look for next page link
+                JsonNode nextLink = json.at("/links").findValue("href");
+                nextUrl = (nextLink != null && !nextLink.isNull()) ? nextLink.asText() : null;
             }
         }
 
@@ -364,7 +351,7 @@ public class LiquidityDriveClient {
         }
     }
 
-    private static void processAsync(WorkItem workItem, CloseableHttpClient httpClient, String apiToken,
+    private static void processAsync(WorkItem workItem, CloseableHttpClient httpClient, Supplier<String> apiToken,
                                      String[] fixedPaths, String[] expandBaseCandidates,
                                      String[] expandFields, Map<String, AsyncCSVWriter> writers,
                                      String headerLine, Path outDir) throws Exception {
@@ -380,7 +367,7 @@ public class LiquidityDriveClient {
 
             HttpGet request = new HttpGet(requestUrl);
             // getAccessTokenAsync(false).get()
-            request.setHeader("Authorization", "Bearer " + apiToken);
+            request.setHeader("Authorization", "Bearer " + apiToken.get());
             request.setHeader("Ocp-Apim-Subscription-Key", API_KEY);
             request.setHeader("Accept", "application/json");
 
