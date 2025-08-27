@@ -1,10 +1,6 @@
 package com.euroclear;
 
 import com.euroclear.util.CSVWriter;
-import com.euroclear.util.Parsing;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.jboss.logging.Logger;
 
 import java.io.IOException;
@@ -14,11 +10,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
-import java.util.stream.Collectors;
 
-import static com.euroclear.util.LiquidityRecord.*;
-import static com.euroclear.util.Parsing.formatJsonValue;
-import static com.euroclear.util.Parsing.selectFirstNonEmpty;
+import static com.euroclear.util.Parsing.generateCSVfromJSON;
 
 public class CsvConsumer implements Runnable {
     private static final Logger logger = Logger.getLogger(CsvConsumer.class);
@@ -26,11 +19,6 @@ public class CsvConsumer implements Runnable {
     private final BlockingQueue<QueueItem> queue;
     private final Map<String, CSVWriter> writers;
     private final CountDownLatch latch;
-    private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
-
-    private static final String[] fixedPaths = FIXED_PATHS;
-    private static final String[] expandBaseCandidates = EXPAND_BASE_CANDIDATES;
-    private static final String[] expandFields = EXPAND_FIELDS;
 
     public CsvConsumer(BlockingQueue<QueueItem> queue, Map<String, CSVWriter> writers, CountDownLatch latch) {
         this.queue = queue;
@@ -73,37 +61,8 @@ public class CsvConsumer implements Runnable {
         String monthKey = item.date().format(DateTimeFormatter.ofPattern("yyyy-MM"));
         StringBuilder buffer = monthlyBuffers.computeIfAbsent(monthKey, k -> new StringBuilder(8192));
 
-        try {
-            JsonNode json = objectMapper.readTree(item.json());
-            List<String> fixedCells = new ArrayList<>();
-            fixedCells.add(item.isin());
-            fixedCells.add(item.date().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")));
-
-            for (String path : fixedPaths) {
-                fixedCells.add(formatJsonValue(json.at("/" + path.replace(".", "/").replace("['", "/").replace("']", ""))));
-            }
-
-            JsonNode txItems = selectFirstNonEmpty(json, expandBaseCandidates);
-            if (txItems == null || !txItems.isArray() || txItems.size() == 0) {
-                List<String> row = new ArrayList<>(fixedCells);
-                for (int i = 0; i < expandFields.length; i++) {
-                    row.add("");
-                }
-                buffer.append(row.stream().map(Parsing::escapeCSV).collect(Collectors.joining(String.valueOf(DELIM)))).append("\n");
-            } else {
-                for (JsonNode txItem : txItems) {
-                    List<String> row = new ArrayList<>(fixedCells);
-                    for (String field : expandFields) {
-                        row.add(formatJsonValue(txItem.get(field)));
-                    }
-                    buffer.append(row.stream().map(Parsing::escapeCSV).collect(Collectors.joining(String.valueOf(DELIM)))).append("\n");
-                }
-            }
-            logger.debugf("Processing: %s" + buffer);
-
-        } catch (IOException e) {
-            logger.errorf("Error processing JSON for ISIN %s on %s: %s", item.isin(), item.date(), e.getMessage());
-        }
+        buffer.append(generateCSVfromJSON(item));
+        logger.debugf("Processing: %s" + buffer);
     }
 
     private void writeBuffers(Map<String, StringBuilder> monthlyBuffers) {

@@ -19,10 +19,7 @@ import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -65,7 +62,13 @@ public class LiquidityDriveNewClient {
         // --- 2. GENERATE WORKLOAD ---
         LocalDate start = ApiConfig.START_DATE;
         LocalDate end = ApiConfig.END_DATE;
-        allWorkItems = generateWorkload(ISINS, start, end);
+
+        String[] isinsToProcess = Optional.ofNullable(System.getenv("ISIN"))
+            .map(isin -> new String[]{isin})
+            .orElse(ISINS);
+
+        allWorkItems = generateWorkload(isinsToProcess, start, end);
+
 
         // --- 3. PRE-CREATE CSV WRITERS ---
         // Initialize headers as needed for each CSV file
