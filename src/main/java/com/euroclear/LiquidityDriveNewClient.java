@@ -44,12 +44,13 @@ public class LiquidityDriveNewClient {
         Instant startTime = Instant.now();
         final boolean isDryRun = "true".equalsIgnoreCase(System.getenv("DRY_RUN"));
 
+        // Load external env variables
+        loadEnvironmentVariables();
+
         if (isDryRun) {
             logger.infof("<<<<< RUNNING IN DRY-RUN MODE >>>>>");
             logger.infof("Connecting to http://localhost:8080. No authentication will be used.");
         } else {
-            // Load external env variables to set the sensitive information
-            loadEnvironmentVariables();
             // Create the Microsoft ConfidentialClientApplication
             createConfidentialClientApplication();
         }

@@ -3,6 +3,7 @@ package com.euroclear.util;
 import org.jboss.logging.Logger;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 
 public class ApiConfig {
     private static final Logger logger = Logger.getLogger(ApiConfig.class);
@@ -20,8 +21,9 @@ public class ApiConfig {
     public static final String SINGLE_ENDPOINT_FMT = "/liquidity/v1/securities/%s?referenceDate=%s";
 
     // Date range for processing
-    public static final LocalDate START_DATE = LocalDate.of(2023, 6,29);
-    public static final LocalDate END_DATE = LocalDate.of(2024, 7,2);
+    public static LocalDate START_DATE;
+    public static LocalDate END_DATE;
+    static DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     public ApiConfig() {
         throw new UnsupportedOperationException("This is a utility class and cannot be instantiated");
@@ -36,6 +38,10 @@ public class ApiConfig {
         CERTIFICATE_FILE_NAME = getEnvOrExit("CERTIFICATE_FILE_NAME");
         LIQUIDITY_DRIVE_ADDRESS = getEnvOrExit("LIQUIDITY_DRIVE_ADDRESS");
         JAVA_TRUST_STORE = getEnvOrExit("JAVA_TRUST_STORE");
+
+        // Range of dates
+        START_DATE = LocalDate.parse(getEnvOrExit("START_DATE"), DATE_FORMAT);
+        END_DATE = LocalDate.parse(getEnvOrExit("END_DATE"), DATE_FORMAT);
     }
 
     public static String getEnvOrExit(String name) {
