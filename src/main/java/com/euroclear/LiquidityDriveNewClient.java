@@ -34,8 +34,9 @@ import static com.euroclear.util.LiquidityRecord.populateHeaders;
 
 public class LiquidityDriveNewClient {
     private static final Logger logger = Logger.getLogger(LiquidityDriveNewClient.class);
-    private static final int BATCH_SIZE = 100;
+    private static final int BATCH_SIZE = 10;
     private static List<WorkItem> allWorkItems;
+    private static Collection<List<WorkItem>> batches;
 
     public static void main(String[] args) throws Exception {
         logger.infof("Starting Euroclear Liquidity Drive Client");
@@ -56,7 +57,7 @@ public class LiquidityDriveNewClient {
         }
 
         // Create the folder where the CSV files will be stored
-        Path outDir = Paths.get(System.getProperty("user.dir"), "new-out");
+        Path outDir = Paths.get(System.getProperty("user.dir"), "out");
         Files.createDirectories(outDir);
 
         // --- 2. GENERATE WORKLOAD ---
@@ -68,7 +69,6 @@ public class LiquidityDriveNewClient {
             .orElse(ISINS);
 
         allWorkItems = generateWorkload(isinsToProcess, start, end);
-
 
         // --- 3. PRE-CREATE CSV WRITERS ---
         // Initialize headers as needed for each CSV file
@@ -93,11 +93,9 @@ public class LiquidityDriveNewClient {
             }
 
             // --- 6. PARTITION WORKLOAD USING NATIVE JAVA AND START PRODUCERS ---
-            Collection<List<WorkItem>> batches = IntStream.range(0, (allWorkItems.size() + BATCH_SIZE - 1) / BATCH_SIZE)
+            batches = IntStream.range(0, (allWorkItems.size() + BATCH_SIZE - 1) / BATCH_SIZE)
                 .mapToObj(i -> allWorkItems.subList(i * BATCH_SIZE, Math.min((i + 1) * BATCH_SIZE, allWorkItems.size())))
                 .collect(Collectors.toList());
-
-            logger.infof("Submitting %s batches to the producer pool...", batches.size());
 
             List<CompletableFuture<Void>> producerFutures = batches.stream()
                 .map(batch -> CompletableFuture.runAsync(() -> {
@@ -131,6 +129,7 @@ public class LiquidityDriveNewClient {
             });
 
             logger.infof("Generated %s total work items to process.", allWorkItems.size());
+            logger.infof("Processed %s batches containing % records", batches.size(), BATCH_SIZE);
             logger.infof("Number of ISIN processed: %d", ISINS.length);
             processingDuration(startTime);
         }

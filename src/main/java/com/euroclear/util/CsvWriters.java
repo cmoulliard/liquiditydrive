@@ -3,6 +3,7 @@ package com.euroclear.util;
 import com.euroclear.AsyncCSVWriter;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -46,10 +47,17 @@ public class CsvWriters {
             String monthKey = current.format(DateTimeFormatter.ofPattern("yyyy-MM"));
             if (!writers.containsKey(monthKey)) {
                 Path filePath = outDir.resolve(monthKey + ".csv");
+
+                // Check if the file is new or empty before writing the header
+                boolean needsHeader = !Files.exists(filePath) || Files.size(filePath) == 0;
                 CsvFileWriter writer = new CsvFileWriter(filePath);
-                // Add the header line
-                writer.writeLine(headerLine());
                 writers.put(monthKey, writer);
+
+                if (needsHeader) {
+                    writer.writeLine(headerLine());
+                    writer.flush(); // Ensure the header is written to disk immediately
+                }
+
             }
             current = current.plusMonths(1);
         }

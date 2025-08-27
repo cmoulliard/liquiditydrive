@@ -74,6 +74,7 @@ public class Parsing {
         } catch (IOException e) {
             logger.errorf("Error processing JSON for ISIN %s on %s: %s", item.isin(), item.date(), e.getMessage());
         }
+        logger.debugf("Converted the JSON to CSV: %s", buffer.toString());
         return buffer;
     }
 
