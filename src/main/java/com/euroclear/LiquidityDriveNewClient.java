@@ -19,7 +19,10 @@ import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -117,11 +120,15 @@ public class LiquidityDriveNewClient {
             consumersLatch.await(5, TimeUnit.MINUTES);
 
             writers.values().forEach(writer -> {
-                try { writer.close(); } catch (IOException e) { logger.error("Error closing writer", e); }
+                try {
+                    writer.close();
+                } catch (IOException e) {
+                    logger.error("Error closing writer", e);
+                }
             });
 
             logger.infof("Generated %s total work items to process.", allWorkItems.size());
-            logger.infof("Number of ISIN processed: %d",ISINS.length);
+            logger.infof("Number of ISIN processed: %d", ISINS.length);
             processingDuration(startTime);
         }
     }
@@ -138,16 +145,12 @@ public class LiquidityDriveNewClient {
         String apiToken = isDryRun ? null : getAccessTokenAsync(false).get();
 
         for (WorkItem workItem : batch) {
-            // --- ADD THIS BLOCK TO SLEEP IN DRY-RUN MODE ---
-            if (isDryRun) {
-                try {
-                    // Sleep for 1000 milliseconds (1 second)
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    // Preserve the interrupted status if the sleep is interrupted
-                    Thread.currentThread().interrupt();
-                    logger.warn("Dry-run sleep was interrupted.");
-                }
+            try {
+                Thread.sleep(SLEEP_TIME_MS);
+            } catch (InterruptedException e) {
+                // Preserve the interrupted status if the sleep is interrupted
+                Thread.currentThread().interrupt();
+                logger.warn("Dry-run sleep was interrupted.");
             }
             // -------------------------------------------------
 

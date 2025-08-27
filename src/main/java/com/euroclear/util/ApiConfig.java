@@ -4,6 +4,7 @@ import org.jboss.logging.Logger;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.Optional;
 
 public class ApiConfig {
     private static final Logger logger = Logger.getLogger(ApiConfig.class);
@@ -25,6 +26,9 @@ public class ApiConfig {
     public static LocalDate END_DATE;
     static DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
+    // Sleep time to wait before to execute a new HTTP request
+    public static Long SLEEP_TIME_MS;
+
     public ApiConfig() {
         throw new UnsupportedOperationException("This is a utility class and cannot be instantiated");
     }
@@ -42,6 +46,12 @@ public class ApiConfig {
         // Range of dates
         START_DATE = LocalDate.parse(getEnvOrExit("START_DATE"), DATE_FORMAT);
         END_DATE = LocalDate.parse(getEnvOrExit("END_DATE"), DATE_FORMAT);
+
+        // Sleep Time
+        SLEEP_TIME_MS = Optional
+            .ofNullable(getEnvOrExit("SLEEP_TIME_MS"))
+            .map(Long::parseLong)
+            .orElse(1000L);
     }
 
     public static String getEnvOrExit(String name) {
