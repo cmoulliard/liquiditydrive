@@ -19,8 +19,8 @@ public class Parsing {
 
     private static ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
-    public static StringBuffer generateCSVfromJSON(QueueItem item) {
-        StringBuffer buffer = new StringBuffer();
+    public static StringBuilder generateCSVfromJSON(QueueItem item) {
+        StringBuilder buffer = new StringBuilder();
         try {
             JsonNode json = objectMapper.readTree(item.json());
             List<String> fixedCells = new ArrayList<>();
