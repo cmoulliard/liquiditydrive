@@ -44,7 +44,7 @@ public class CsvConsumer implements Runnable {
                 // Correct and clean way to process the items
                 Map<String, StringBuilder> monthlyBuffers = new java.util.HashMap<>();
                 for (QueueItem currentItem : localBatch) {
-                    logger.debugf("Processing item ISIN: %s",item.isin());
+                    logger.debugf("Processing item ISIN (JSON to CSV): %s",item.isin());
                     processItem(currentItem, monthlyBuffers);
                 }
 
@@ -70,7 +70,7 @@ public class CsvConsumer implements Runnable {
             CsvFileWriter writer = writers.get(entry.getKey());
             if (writer != null && !entry.getValue().isEmpty()) {
                 // This log will tell you if the consumer is actually receiving data to write
-                logger.infof("Writing %s bytes to file for month %s", entry.getValue().length(), entry.getKey());
+                logger.debugf("Writing %s bytes to file for month %s", entry.getValue().length(), entry.getKey());
 
                 try {
                     synchronized (writer) {
