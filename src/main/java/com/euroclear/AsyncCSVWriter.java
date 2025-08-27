@@ -1,11 +1,13 @@
 package com.euroclear;
 
-import com.euroclear.util.CSVWriter;
+import com.euroclear.util.CsvFileWriter;
 import org.jboss.logging.Logger;
 
 import java.io.Flushable;
 import java.io.IOException;
-import java.util.concurrent.*;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Asynchronous CSV writer that writes to the underlying CSVWriter
@@ -14,12 +16,12 @@ import java.util.concurrent.*;
  */
 public class AsyncCSVWriter implements AutoCloseable, Flushable {
     private static final Logger logger = Logger.getLogger(AsyncCSVWriter.class);
-    private final CSVWriter writer;
+    private final CsvFileWriter writer;
     private final BlockingQueue<String> queue = new LinkedBlockingQueue<>();
     private final Thread thread;
     private volatile boolean running = true;
 
-    public AsyncCSVWriter(CSVWriter writer) {
+    public AsyncCSVWriter(CsvFileWriter writer) {
         this.writer = writer;
         this.thread = new Thread(this::runLoop, "AsyncCSVWriter");
         this.thread.setDaemon(false);

@@ -1,14 +1,24 @@
 package com.euroclear.util;
 
-import com.euroclear.LiquidityDriveClient;
 import org.jboss.logging.Logger;
 
+import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 
 public class Calculation {
     private static final Logger logger = Logger.getLogger(Calculation.class);
+
+    public static Stream<LocalDate> eachBusinessDay(LocalDate start, LocalDate end, Set<LocalDate> holidays) {
+        return start.datesUntil(end.plusDays(1))
+            .filter(date -> date.getDayOfWeek() != DayOfWeek.SATURDAY &&
+                date.getDayOfWeek() != DayOfWeek.SUNDAY)
+            .filter(date -> holidays == null || !holidays.contains(date));
+    }
 
     public static void processingDuration(Instant startTime) {
         Instant endTime = Instant.now();

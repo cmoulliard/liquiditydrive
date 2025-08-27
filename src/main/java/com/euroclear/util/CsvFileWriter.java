@@ -6,7 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 
-public class CSVWriter implements Closeable, Flushable {
+public class CsvFileWriter implements Closeable, Flushable {
 
     private final BufferedWriter writer;
 
@@ -16,7 +16,7 @@ public class CSVWriter implements Closeable, Flushable {
      * @param path The path to the output file.
      * @throws IOException
      */
-    public CSVWriter(Path path) throws IOException {
+    public CsvFileWriter(Path path) throws IOException {
         this.writer = Files.newBufferedWriter(path, StandardCharsets.UTF_8,
             StandardOpenOption.CREATE, StandardOpenOption.APPEND);
     }
@@ -26,7 +26,7 @@ public class CSVWriter implements Closeable, Flushable {
      * @param file The file to write to.
      * @throws IOException
      */
-    public CSVWriter(File file) throws IOException {
+    public CsvFileWriter(File file) throws IOException {
         // This constructor now delegates to the Path constructor for consistency.
         this(file.toPath());
     }

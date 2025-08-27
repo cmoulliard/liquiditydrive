@@ -27,7 +27,6 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.euroclear.util.ApiConfig.*;
-import static com.euroclear.util.ApiConfig.AUTHORITY;
 
 public class Authentication {
 

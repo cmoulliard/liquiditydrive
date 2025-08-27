@@ -1,7 +1,7 @@
 package com.euroclear;
 
 import com.euroclear.util.ApiConfig;
-import com.euroclear.util.CSVWriter;
+import com.euroclear.util.CsvFileWriter;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
@@ -26,11 +26,11 @@ import java.util.stream.IntStream;
 
 import static com.euroclear.util.ApiConfig.*;
 import static com.euroclear.util.Authentication.*;
+import static com.euroclear.util.Calculation.eachBusinessDay;
 import static com.euroclear.util.Calculation.processingDuration;
+import static com.euroclear.util.CsvWriters.createMonthlyWriters;
 import static com.euroclear.util.ISIN.ISINS;
 import static com.euroclear.util.LiquidityRecord.populateHeaders;
-import static com.euroclear.util.Parsing.createMonthlyWriters;
-import static com.euroclear.util.Parsing.eachBusinessDay;
 
 public class LiquidityDriveNewClient {
     private static final Logger logger = Logger.getLogger(LiquidityDriveNewClient.class);
@@ -75,7 +75,7 @@ public class LiquidityDriveNewClient {
         populateHeaders();
 
         // Create the monthly securities csv files for the period
-        Map<String, CSVWriter> writers = createMonthlyWriters(start, end, outDir);
+        Map<String, CsvFileWriter> writers = createMonthlyWriters(start, end, outDir);
 
         // --- 4. SETUP PRODUCER-CONSUMER INFRASTRUCTURE ---
         BlockingQueue<QueueItem> workQueue = new LinkedBlockingQueue<>(10000); // Bounded queue

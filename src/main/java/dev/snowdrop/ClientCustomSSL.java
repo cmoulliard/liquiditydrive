@@ -1,10 +1,5 @@
 package dev.snowdrop;
 
-import java.security.cert.X509Certificate;
-
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLSession;
-
 import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.config.TlsConfig;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
@@ -19,6 +14,10 @@ import org.apache.hc.core5.http.message.StatusLine;
 import org.apache.hc.core5.http.ssl.TLS;
 import org.apache.hc.core5.ssl.SSLContexts;
 import org.apache.hc.core5.util.Timeout;
+
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSession;
+import java.security.cert.X509Certificate;
 
 /**
  * This example demonstrates how to create secure connections with a custom SSL

@@ -1,6 +1,6 @@
 package com.euroclear;
 
-import com.euroclear.util.CSVWriter;
+import com.euroclear.util.CsvFileWriter;
 import org.jboss.logging.Logger;
 
 import java.io.IOException;
@@ -17,10 +17,10 @@ public class CsvConsumer implements Runnable {
     private static final Logger logger = Logger.getLogger(CsvConsumer.class);
 
     private final BlockingQueue<QueueItem> queue;
-    private final Map<String, CSVWriter> writers;
+    private final Map<String, CsvFileWriter> writers;
     private final CountDownLatch latch;
 
-    public CsvConsumer(BlockingQueue<QueueItem> queue, Map<String, CSVWriter> writers, CountDownLatch latch) {
+    public CsvConsumer(BlockingQueue<QueueItem> queue, Map<String, CsvFileWriter> writers, CountDownLatch latch) {
         this.queue = queue;
         this.writers = writers;
         this.latch = latch;
@@ -67,7 +67,7 @@ public class CsvConsumer implements Runnable {
 
     private void writeBuffers(Map<String, StringBuilder> monthlyBuffers) {
         for (Map.Entry<String, StringBuilder> entry : monthlyBuffers.entrySet()) {
-            CSVWriter writer = writers.get(entry.getKey());
+            CsvFileWriter writer = writers.get(entry.getKey());
             if (writer != null && entry.getValue().length() > 0) {
                 // This log will tell you if the consumer is actually receiving data to write
                 logger.debugf("Writing %s bytes to file for month %s", entry.getValue().length(), entry.getKey());
