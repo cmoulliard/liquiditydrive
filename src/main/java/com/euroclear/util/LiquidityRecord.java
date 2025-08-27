@@ -82,15 +82,6 @@ public class LiquidityRecord {
         "aggregatedHoldingData.medianHoldingSizeEur",
         "aggregatedHoldingData.medianHoldingSizeMarketValueEur",
 
-        // SMA 30 (leafs)
-        "aggregatedHoldingData.simpleMovingAverage['30'].concentration",
-        "aggregatedHoldingData.simpleMovingAverage['30'].concentrationDelta",
-        "aggregatedHoldingData.simpleMovingAverage['30'].freeFloatHolding",
-        "aggregatedHoldingData.simpleMovingAverage['30'].freeFloatHoldingDelta",
-        "aggregatedHoldingData.simpleMovingAverage['30'].averageHoldingSize",
-        "aggregatedHoldingData.simpleMovingAverage['30'].averageHoldingSizeDelta",
-        "aggregatedHoldingData.simpleMovingAverage['30'].medianHoldingSize",
-        "aggregatedHoldingData.simpleMovingAverage['30'].medianHoldingSizeDelta",
 
         // Transaction aggregates (leafs)
         "aggregatedTransactionData.totalVolCurrentBD.volumeEur",
@@ -102,22 +93,6 @@ public class LiquidityRecord {
         "aggregatedTransactionData.medianTicketSizeEur",
         "aggregatedTransactionData.medianGrossSettlementPriceEur",
         "aggregatedTransactionData.settlementVWAPEur",
-
-        // Transaction SMA 30 (leafs)
-        "aggregatedTransactionData.simpleMovingAverage['30'].concentration",
-        "aggregatedTransactionData.simpleMovingAverage['30'].concentrationDelta",
-        "aggregatedTransactionData.simpleMovingAverage['30'].volume",
-        "aggregatedTransactionData.simpleMovingAverage['30'].volumeDelta",
-        "aggregatedTransactionData.simpleMovingAverage['30'].averageTicketSize",
-        "aggregatedTransactionData.simpleMovingAverage['30'].averageTicketSizeDelta",
-        "aggregatedTransactionData.simpleMovingAverage['30'].medianTicketSize",
-        "aggregatedTransactionData.simpleMovingAverage['30'].medianTicketSizeDelta",
-        "aggregatedTransactionData.simpleMovingAverage['30'].averageGrossSettlementPrice",
-        "aggregatedTransactionData.simpleMovingAverage['30'].averageGrossSettlementPriceDelta",
-        "aggregatedTransactionData.simpleMovingAverage['30'].medianGrossSettlementPrice",
-        "aggregatedTransactionData.simpleMovingAverage['30'].medianGrossSettlementPriceDelta",
-        "aggregatedTransactionData.simpleMovingAverage['30'].settlementVWAP",
-        "aggregatedTransactionData.simpleMovingAverage['30'].settlementVWAPDelta"
     };
 
 }
