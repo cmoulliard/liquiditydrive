@@ -64,8 +64,8 @@ public class LiquidityDriveNewClient {
         LocalDate start = ApiConfig.START_DATE;
         LocalDate end = ApiConfig.END_DATE;
 
-        String[] isinsToProcess = Optional.ofNullable(System.getenv("ISIN"))
-            .map(isin -> new String[]{isin})
+        String[] isinsToProcess = Optional.ofNullable(System.getenv("ISINS"))
+            .map(s -> s.split("\\s*,\\s*"))
             .orElse(ISINS);
 
         allWorkItems = generateWorkload(isinsToProcess, start, end);
