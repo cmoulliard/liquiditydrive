@@ -59,9 +59,9 @@ public class Authentication {
             .build();
 
         RequestConfig requestConfig = RequestConfig.custom()
-            .setConnectTimeout(Timeout.ofMinutes(10)) // How long to wait to establish a connection
-            .setResponseTimeout(Timeout.ofMinutes(10)) // How long to wait for a response
-            .setConnectionRequestTimeout(Timeout.ofMinutes(10)) // How long to wait for a connection from the pool
+            .setConnectTimeout(Timeout.ofMinutes(3)) // How long to wait to establish a connection
+            .setResponseTimeout(Timeout.ofMinutes(3)) // How long to wait for a response
+            .setConnectionRequestTimeout(Timeout.ofMinutes(3)) // How long to wait for a connection from the pool
             .build();
 
         TlsSocketStrategy tlsStrategy = new DefaultClientTlsStrategy(sslContext);
