@@ -62,4 +62,4 @@ mvn exec:java
 
 The application generates the CSV files in the `out/` directory.
 
-**Important**: The HTTP requests failing are stored under the file `out/error-log.csv` and includes the code ISIN, the date and the HTTP Error Code !
+**Important**: The HTTP requests failing are stored under the file `out/error-log.csv` and includes the code ISIN, the date and the HTTP Error Code (see: https://fr.wikipedia.org/wiki/Liste_des_codes_HTTP) !
