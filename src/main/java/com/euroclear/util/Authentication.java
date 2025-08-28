@@ -112,6 +112,7 @@ public class Authentication {
                     if (needsRefresh) {
                         ClientCredentialParameters parameters = ClientCredentialParameters.builder(scopes).build();
                         IAuthenticationResult result = app.acquireToken(parameters).get();
+                        logger.warnf("Euroclear ApiToken acquired: %s",result.accessToken());
                         cachedAuth.set(result);
                     }
                     return cachedAuth.get().accessToken();
