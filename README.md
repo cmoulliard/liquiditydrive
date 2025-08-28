@@ -41,13 +41,17 @@ keytool -importcert -alias "euroclear_root_ca" -file "conf/euroclear-root-ca.crt
 ## Usage
 
 ```bash
+# git clone the project
+git clone https://github.com/cmoulliard/liquiditydrive.git
+cd liquiditydrive
+
 # Set the env variables (PowerShell)
 [Environment]::SetEnvironmentVariable('Foo','Bar')
 # Trick: to see the env var `$env:Foo`
 
 # Set the env variables for mac, linux users using .net file
 
-# Compile the project
+# Compile the project the first or when code changes (after doing git pull)
 mvn clean compile
 
 # Run the application
