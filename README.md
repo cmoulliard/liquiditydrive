@@ -31,24 +31,37 @@ openssl x509 -in conf/euroclear-root-ca.crt -text -noout
 
 keytool -importcert -alias "euroclear_root_ca" -file "conf/euroclear-root-ca.crt" -keystore "conf/euroclear-truststore.jks" -storepass "xxxx"
 ```
-2. **Credentials**: Update the following env variables`:
+3. **Credentials & certificate**: Update the following env variables`:
    - `CLIENT_ID`: Your Azure AD application client ID
    - `APPLICATION_ID`: Your Euroclear application ID
    - `API_KEY`: Azure Subscription key
    - `CERTIFICATE_FILE_NAME`: Path to the Euroclear certificate file
    - `CERTIFICATE_PASSWORD`: Password of the  certificate
    - `AUTHORITY`: Microsoft Azure Authority server - https://learn.microsoft.com/en-us/entra/identity-platform/msal-client-application-configuration
+   - `JAVA_TRUST_STORE`: Path of the java certificate trustore
 
+4. **Euroclean LiquiDrive Application**: 
+   - `LIQUIDITY_DRIVE_ADDRESS`: https://liquiditydrive.eis.euroclear.com`
+   - `SLEEP_TIME_MS`: 1000 milliseconds. Sleep time before executing new HTTP requests
+
+   - `START_DATE`: Start date to collect securities' data. Format is "yyyy-mm-dd"
+   - `END_DATE`: End date to collect securities' data. Format is "yyyy-mm-dd"
+   - `ISINS`: List of ISIN codes separated by comma
+   - 
 ## Usage
 
 ```bash
-# Set the needed env variables
+# Set the env variables
+[Environment]::SetEnvironmentVariable('Foo','Bar')
+etc ...
+
+to see the env var `$env:Foo`
 
 # Compile the project
 mvn clean compile
 
 # Run the application
-exec:java -Dexec.mainClass="com.euroclear.LiquidityDriveNewClient"
+mvn exec:java
 ```
 
 ## Output
