@@ -107,7 +107,7 @@ public class Authentication {
                 try {
                     boolean needsRefresh = forceRefresh ||
                         cachedAuth.get() == null ||
-                        cachedAuth.get().expiresOnDate().before(new Date(System.currentTimeMillis() + 300000)); // 5 minutes
+                        cachedAuth.get().expiresOnDate().before(new Date(System.currentTimeMillis() + 180000)); // 3 minutes
 
                     if (needsRefresh) {
                         ClientCredentialParameters parameters = ClientCredentialParameters.builder(scopes).build();
