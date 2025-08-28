@@ -48,7 +48,7 @@ public class Authentication {
 
         // 2. Load the new trust store containing the server's CA certificate
         KeyStore trustStore = KeyStore.getInstance("PKCS12");
-        try (FileInputStream trustStoreStream = new FileInputStream("/Users/cmoullia/code/vscode/euroclear/conf/euroclear-truststore.jks")) {
+        try (FileInputStream trustStoreStream = new FileInputStream(JAVA_TRUST_STORE)) {
             trustStore.load(trustStoreStream, "euroclear".toCharArray());
         }
 
