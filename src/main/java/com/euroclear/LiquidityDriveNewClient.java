@@ -38,6 +38,13 @@ public class LiquidityDriveNewClient {
     private static List<WorkItem> allWorkItems;
     private static Collection<List<WorkItem>> batches;
 
+    private static final Set<Integer> LOGGABLE_ERROR_CODES = Set.of(
+        HttpStatus.SC_NO_CONTENT,       // 204
+        HttpStatus.SC_UNAUTHORIZED,     // 401
+        HttpStatus.SC_NOT_FOUND,        // 404
+        HttpStatus.SC_TOO_MANY_REQUESTS // 429
+    );
+
     public static void main(String[] args) throws Exception {
         logger.infof("Starting Euroclear Liquidity Drive Client");
 
@@ -60,79 +67,88 @@ public class LiquidityDriveNewClient {
         Path outDir = Paths.get(System.getProperty("user.dir"), "out");
         Files.createDirectories(outDir);
 
-        // --- 2. GENERATE WORKLOAD ---
-        LocalDate start = ApiConfig.START_DATE;
-        LocalDate end = ApiConfig.END_DATE;
-
-        String[] isinsToProcess = Optional.ofNullable(System.getenv("ISINS"))
-            .map(s -> s.split("\\s*,\\s*"))
-            .orElse(ISINS);
-
-        allWorkItems = generateWorkload(isinsToProcess, start, end);
-
-        // --- 3. PRE-CREATE CSV WRITERS ---
-        // Initialize headers as needed for each CSV file
-        populateHeaders();
-
-        // Create the monthly securities csv files for the period
-        Map<String, CsvFileWriter> writers = createMonthlyWriters(start, end, outDir);
-
-        // --- 4. SETUP PRODUCER-CONSUMER INFRASTRUCTURE ---
-        BlockingQueue<QueueItem> workQueue = new LinkedBlockingQueue<>(10000); // Bounded queue
-        ExecutorService producerExecutor = Executors.newVirtualThreadPerTaskExecutor();
-
-        int consumerThreads = Math.max(1, Runtime.getRuntime().availableProcessors() / 2);
-        ExecutorService consumerExecutor = Executors.newFixedThreadPool(consumerThreads);
-        CountDownLatch consumersLatch = new CountDownLatch(consumerThreads);
-
-        try (CloseableHttpClient httpClient = isDryRun ? HttpClients.createDefault() : createHttpClient()) {
-
-            // --- 5. START CONSUMERS ---
-            for (int i = 0; i < consumerThreads; i++) {
-                consumerExecutor.submit(new CsvConsumer(workQueue, writers, consumersLatch));
+        // --- 2. CREATE ERROR LOG WRITER ---
+        Path errorLogPath = outDir.resolve("error-log.csv");
+        try (CsvFileWriter errorWriter = new CsvFileWriter(errorLogPath)) {
+            if (Files.size(errorLogPath) == 0) {
+                errorWriter.writeLine("\"ISIN\",\"Date\",\"ErrorCode\"");
+                errorWriter.flush();
             }
 
-            // --- 6. PARTITION WORKLOAD USING NATIVE JAVA AND START PRODUCERS ---
-            batches = IntStream.range(0, (allWorkItems.size() + BATCH_SIZE - 1) / BATCH_SIZE)
-                .mapToObj(i -> allWorkItems.subList(i * BATCH_SIZE, Math.min((i + 1) * BATCH_SIZE, allWorkItems.size())))
-                .collect(Collectors.toList());
+            // --- 3. GENERATE WORKLOAD ---
+            LocalDate start = ApiConfig.START_DATE;
+            LocalDate end = ApiConfig.END_DATE;
 
-            List<CompletableFuture<Void>> producerFutures = batches.stream()
-                .map(batch -> CompletableFuture.runAsync(() -> {
-                    try {
-                        processWorkBatch(batch, httpClient, workQueue, isDryRun);
-                    } catch (Exception e) {
-                        logger.errorf("Error processing a batch: %s", e.getMessage());
-                    }
-                }, producerExecutor))
-                .collect(Collectors.toList());
+            String[] isinsToProcess = Optional.ofNullable(System.getenv("ISINS"))
+                .map(s -> s.split("\\s*,\\s*"))
+                .orElse(ISINS);
 
-            CompletableFuture.allOf(producerFutures.toArray(new CompletableFuture[0])).join();
-            logger.infof("All producers have finished submitting work.");
+            allWorkItems = generateWorkload(isinsToProcess, start, end);
 
-        } finally {
-            // --- 7. SHUTDOWN ---
-            logger.infof("Signaling consumers to shut down...");
-            for (int i = 0; i < consumerThreads; i++) {
-                workQueue.put(new QueueItem("POISON_PILL", null, null));
-            }
+            // --- 3. PRE-CREATE CSV WRITERS ---
+            // Initialize headers as needed for each CSV file
+            populateHeaders();
 
-            consumerExecutor.shutdown();
-            consumersLatch.await(5, TimeUnit.MINUTES);
+            // Create the monthly securities csv files for the period
+            Map<String, CsvFileWriter> writers = createMonthlyWriters(start, end, outDir);
 
-            writers.values().forEach(writer -> {
-                try {
-                    writer.close();
-                } catch (IOException e) {
-                    logger.error("Error closing writer", e);
+            // --- 4. SETUP PRODUCER-CONSUMER INFRASTRUCTURE ---
+            BlockingQueue<QueueItem> workQueue = new LinkedBlockingQueue<>(10000); // Bounded queue
+            ExecutorService producerExecutor = Executors.newVirtualThreadPerTaskExecutor();
+
+            int consumerThreads = Math.max(1, Runtime.getRuntime().availableProcessors() / 2);
+            ExecutorService consumerExecutor = Executors.newFixedThreadPool(consumerThreads);
+            CountDownLatch consumersLatch = new CountDownLatch(consumerThreads);
+
+            try (CloseableHttpClient httpClient = isDryRun ? HttpClients.createDefault() : createHttpClient()) {
+
+                // --- 5. START CONSUMERS ---
+                for (int i = 0; i < consumerThreads; i++) {
+                    consumerExecutor.submit(new CsvConsumer(workQueue, writers, consumersLatch));
                 }
-            });
 
-            logger.infof("Generated %s total work items to process.", allWorkItems.size());
-            logger.infof("Processed %s batches containing % records", batches.size(), BATCH_SIZE);
-            logger.infof("Number of ISIN processed: %d", ISINS.length);
-            processingDuration(startTime);
-        }
+                // --- 6. PARTITION WORKLOAD USING NATIVE JAVA AND START PRODUCERS ---
+                batches = IntStream.range(0, (allWorkItems.size() + BATCH_SIZE - 1) / BATCH_SIZE)
+                    .mapToObj(i -> allWorkItems.subList(i * BATCH_SIZE, Math.min((i + 1) * BATCH_SIZE, allWorkItems.size())))
+                    .collect(Collectors.toList());
+
+                List<CompletableFuture<Void>> producerFutures = batches.stream()
+                    .map(batch -> CompletableFuture.runAsync(() -> {
+                        try {
+                            processWorkBatch(batch, httpClient, workQueue, isDryRun, errorWriter);
+                        } catch (Exception e) {
+                            logger.errorf("Error processing a batch: %s", e.getMessage());
+                        }
+                    }, producerExecutor))
+                    .collect(Collectors.toList());
+
+                CompletableFuture.allOf(producerFutures.toArray(new CompletableFuture[0])).join();
+                logger.infof("All producers have finished submitting work.");
+
+            } finally {
+                // --- 7. SHUTDOWN ---
+                logger.infof("Signaling consumers to shut down...");
+                for (int i = 0; i < consumerThreads; i++) {
+                    workQueue.put(new QueueItem("POISON_PILL", null, null));
+                }
+
+                consumerExecutor.shutdown();
+                consumersLatch.await(5, TimeUnit.MINUTES);
+
+                writers.values().forEach(writer -> {
+                    try {
+                        writer.close();
+                    } catch (IOException e) {
+                        logger.error("Error closing writer", e);
+                    }
+                });
+
+                logger.infof("Generated %s total work items to process.", allWorkItems.size());
+                logger.infof("Processed %s batches containing % records", batches.size(), BATCH_SIZE);
+                logger.infof("Number of ISIN processed: %d", ISINS.length);
+                processingDuration(startTime);
+            }
+        } // Error writer is automatically closed here by try-with-resources
     }
 
     private static List<WorkItem> generateWorkload(String[] isins, LocalDate start, LocalDate end) {
@@ -142,7 +158,7 @@ public class LiquidityDriveNewClient {
             .collect(Collectors.toList());
     }
 
-    private static void processWorkBatch(List<WorkItem> batch, CloseableHttpClient httpClient, BlockingQueue<QueueItem> queue, boolean isDryRun) throws Exception {
+    private static void processWorkBatch(List<WorkItem> batch, CloseableHttpClient httpClient, BlockingQueue<QueueItem> queue, boolean isDryRun, CsvFileWriter errorWriter) throws Exception {
         // Only get a token if not in dry-run mode
         String apiToken = isDryRun ? null : getAccessTokenAsync(false).get();
 
@@ -179,14 +195,26 @@ public class LiquidityDriveNewClient {
             }
 
             try (CloseableHttpResponse response = httpClient.execute(request)) {
-                if (response.getCode() == HttpStatus.SC_OK && response.getEntity() != null) {
+                int statusCode = response.getCode();
+                if (statusCode == HttpStatus.SC_OK && response.getEntity() != null) {
                     String bodyText = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
                     if (bodyText != null && !bodyText.trim().isEmpty()) {
-                        logger.warnf("Received status [%s] for ISIN %s on %s", response.getCode(), workItem.isin(), workItem.date());
                         queue.put(new QueueItem(bodyText, workItem.isin(), workItem.date()));
                     }
                 } else {
-                    logger.warnf("Received non-200 status [%s] for ISIN %s on %s", response.getCode(), workItem.isin(), workItem.date());
+                    // --- NEW ERROR LOGGING LOGIC ---
+                    if (LOGGABLE_ERROR_CODES.contains(statusCode)) {
+                        String errorRow = String.format("\"%s\",\"%s\",%d",
+                            workItem.isin(),
+                            workItem.date().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")),
+                            statusCode);
+
+                        // Synchronize on the writer to ensure thread-safe writes
+                        synchronized (errorWriter) {
+                            errorWriter.writeLine(errorRow);
+                        }
+                    }
+                    logger.warnf("Received non-200 status [{}] for ISIN {} on {}", statusCode, workItem.isin(), workItem.date());
                 }
             } catch (Exception e) {
                 logger.errorf("HTTP request failed for ISIN %s on %s: %s", workItem.isin(), workItem.date(), e.getMessage());
