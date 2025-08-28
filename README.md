@@ -2,16 +2,6 @@
 
 A Java client for accessing the Euroclear Liquidity Drive API.
 
-## Features
-
-- **Certificate-based OAuth authentication** using MSAL4J with PKCS12 certificates
-- **HTTP client** with Apache HttpClient 5 for API requests
-- **JSON processing** with Jackson for parsing API responses
-- **CSV output generation** with proper field escaping
-- **Concurrent processing** using Java CompletableFuture and ExecutorService
-- **Error handling** for authentication failures and API errors
-- **Organized constants** in dedicated utility classes
-
 ## Requirements
 
 - Java 17+
@@ -51,11 +41,11 @@ keytool -importcert -alias "euroclear_root_ca" -file "conf/euroclear-root-ca.crt
 ## Usage
 
 ```bash
-# Set the env variables
+# Set the env variables (PowerShell)
 [Environment]::SetEnvironmentVariable('Foo','Bar')
-etc ...
+# Trick: to see the env var `$env:Foo`
 
-to see the env var `$env:Foo`
+# Set the env variables for mac, linux users using .net file
 
 # Compile the project
 mvn clean compile
