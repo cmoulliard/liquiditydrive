@@ -144,7 +144,7 @@ public class LiquidityDriveNewClient {
                 });
 
                 logger.infof("Generated %s total work items to process.", allWorkItems.size());
-                logger.infof("Processed %s batches containing % records", batches.size(), BATCH_SIZE);
+                logger.infof("Processed %d batches containing %d records", batches.size(), BATCH_SIZE);
                 logger.infof("Number of ISIN processed: %d", ISINS.length);
                 processingDuration(startTime);
             }
@@ -212,10 +212,11 @@ public class LiquidityDriveNewClient {
                         // Synchronize on the writer to ensure thread-safe writes
                         synchronized (errorWriter) {
                             errorWriter.writeLine(errorRow);
+                            errorWriter.flush();
                         }
                     }
-                    logger.warnf("Received non-200 status [{}] for ISIN {} on {}", statusCode, workItem.isin(), workItem.date());
                 }
+                logger.warnf("Received status [%d] for ISIN %s on %s", statusCode, workItem.isin(), workItem.date());
             } catch (Exception e) {
                 logger.errorf("HTTP request failed for ISIN %s on %s: %s", workItem.isin(), workItem.date(), e.getMessage());
             }
