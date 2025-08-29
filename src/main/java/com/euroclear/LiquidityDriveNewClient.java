@@ -104,21 +104,22 @@ public class LiquidityDriveNewClient {
             ExecutorService consumerExecutor = Executors.newFixedThreadPool(consumerThreads);
             CountDownLatch consumersLatch = new CountDownLatch(consumerThreads);
 
-            logger.infof("Number of work items: " + allWorkItems.size());
+            logger.infof("Number of work items: %d" + allWorkItems.size());
 
             // --- 6. PARTITION WORKLOAD USING NATIVE JAVA AND START PRODUCERS ---
             batches = IntStream.range(0, (allWorkItems.size() + BATCH_SIZE - 1) / BATCH_SIZE)
                 .mapToObj(i -> allWorkItems.subList(i * BATCH_SIZE, Math.min((i + 1) * BATCH_SIZE, allWorkItems.size())))
                 .collect(Collectors.toList());
 
-            logger.infof("Number of batches calculated: " + batches.size());
+            logger.infof("Number of batches calculated: %d" + batches.size());
 
             try (CloseableHttpClient httpClient = isDryRun ? HttpClients.createDefault() : createHttpClient()) {
 
-                // --- 5. START CONSUMERS ---
+                logger.infof("Submitting %d consumer tasks to the executor...", consumerThreads);
                 for (int i = 0; i < consumerThreads; i++) {
                     consumerExecutor.submit(new CsvConsumer(workQueue, writers, consumersLatch));
                 }
+                logger.info("All consumer tasks submitted. Starting producers...");
 
                 List<CompletableFuture<Void>> producerFutures = batches.stream()
                     .map(batch -> CompletableFuture.runAsync(() -> {
