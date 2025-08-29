@@ -101,16 +101,19 @@ public class LiquidityDriveNewClient {
             CountDownLatch consumersLatch = new CountDownLatch(consumerThreads);
 
             try (CloseableHttpClient httpClient = isDryRun ? HttpClients.createDefault() : createHttpClient()) {
-
                 // --- 5. START CONSUMERS ---
                 for (int i = 0; i < consumerThreads; i++) {
                     consumerExecutor.submit(new CsvConsumer(workQueue, writers, consumersLatch));
                 }
 
+                logger.infof("Number of work items: " + allWorkItems.size());
+
                 // --- 6. PARTITION WORKLOAD USING NATIVE JAVA AND START PRODUCERS ---
                 batches = IntStream.range(0, (allWorkItems.size() + BATCH_SIZE - 1) / BATCH_SIZE)
                     .mapToObj(i -> allWorkItems.subList(i * BATCH_SIZE, Math.min((i + 1) * BATCH_SIZE, allWorkItems.size())))
                     .collect(Collectors.toList());
+
+                logger.infof("Number of batches calculated: " + batches.size());
 
                 List<CompletableFuture<Void>> producerFutures = batches.stream()
                     .map(batch -> CompletableFuture.runAsync(() -> {
@@ -124,7 +127,9 @@ public class LiquidityDriveNewClient {
 
                 CompletableFuture.allOf(producerFutures.toArray(new CompletableFuture[0])).join();
                 logger.infof("All producers have finished submitting work.");
-
+            } catch (Exception e) {
+                logger.errorf("Error occurs during the processing: %s", e.getMessage());
+                e.printStackTrace();
             } finally {
                 // --- 7. SHUTDOWN ---
                 logger.infof("Signaling consumers to shut down...");
