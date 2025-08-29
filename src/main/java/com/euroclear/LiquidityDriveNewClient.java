@@ -101,6 +101,8 @@ public class LiquidityDriveNewClient {
             ExecutorService producerExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
             int consumerThreads = Math.max(1, Runtime.getRuntime().availableProcessors() / 2);
+            logger.infof("Number of consumer threads: %d", consumerThreads);
+
             ExecutorService consumerExecutor = Executors.newFixedThreadPool(consumerThreads);
             CountDownLatch consumersLatch = new CountDownLatch(consumerThreads);
 
