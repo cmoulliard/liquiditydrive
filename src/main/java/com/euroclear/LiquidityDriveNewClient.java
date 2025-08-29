@@ -37,6 +37,7 @@ public class LiquidityDriveNewClient {
     private static final Logger logger = Logger.getLogger(LiquidityDriveNewClient.class);
     private static List<WorkItem> allWorkItems;
     private static Collection<List<WorkItem>> batches;
+    private static String[] isinsToProcess;
 
     private static final Set<Integer> LOGGABLE_ERROR_CODES = Set.of(
         HttpStatus.SC_NO_CONTENT,       // 204
@@ -84,7 +85,7 @@ public class LiquidityDriveNewClient {
 
             logger.infof("Range of dates: %s - %s", start, end);
 
-            String[] isinsToProcess = Optional.ofNullable(System.getenv("ISINS"))
+            isinsToProcess = Optional.ofNullable(System.getenv("ISINS"))
                 .map(s -> s.split("\\s*,\\s*"))
                 .orElse(ISINS);
 
@@ -161,7 +162,7 @@ public class LiquidityDriveNewClient {
 
                 logger.infof("Generated %s total work items to process.", allWorkItems.size());
                 logger.infof("Processed %d batches containing %d records", batches.size(), BATCH_SIZE);
-                logger.infof("Number of ISIN processed: %d", ISINS.length);
+                logger.infof("Number of ISIN processed: %d", isinsToProcess);
                 processingDuration(startTime);
             }
         } // Error writer is automatically closed here by try-with-resources
