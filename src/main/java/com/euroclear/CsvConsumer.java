@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 
+import static com.euroclear.util.Batch.BATCH_SIZE;
 import static com.euroclear.util.Parsing.generateCSVfromJSON;
 
 public class CsvConsumer implements Runnable {
@@ -34,12 +35,19 @@ public class CsvConsumer implements Runnable {
             // The consumer will loop and take items from the queue.
             // It will automatically block here until an item is available.
             // It will only exit the loop when a "POISON_PILL" is received.
-            QueueItem item;
-            while ((item = queue.take()).json().equals("POISON_PILL") == false) {
+            while (true) {
+                QueueItem item = queue.take();
+
+                // --- THIS IS THE CRITICAL FIX ---
+                // Use .equals() to correctly check for the shutdown signal
+                if ("POISON_PILL".equals(item.json())) {
+                    break; // Exit the loop
+                }
+
                 // Put the item back into a local batch for processing
                 List<QueueItem> localBatch = new ArrayList<>();
                 localBatch.add(item);
-                queue.drainTo(localBatch, 99); // Drain any other items that arrived
+                queue.drainTo(localBatch, BATCH_SIZE-1); // Drain any other items that arrived
 
                 // Correct and clean way to process the items
                 Map<String, StringBuilder> monthlyBuffers = new java.util.HashMap<>();

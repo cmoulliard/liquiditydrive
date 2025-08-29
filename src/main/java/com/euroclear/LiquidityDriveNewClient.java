@@ -26,6 +26,7 @@ import java.util.stream.IntStream;
 
 import static com.euroclear.util.ApiConfig.*;
 import static com.euroclear.util.Authentication.*;
+import static com.euroclear.util.Batch.BATCH_SIZE;
 import static com.euroclear.util.Calculation.eachBusinessDay;
 import static com.euroclear.util.Calculation.processingDuration;
 import static com.euroclear.util.CsvWriters.createMonthlyWriters;
@@ -34,7 +35,6 @@ import static com.euroclear.util.LiquidityRecord.populateHeaders;
 
 public class LiquidityDriveNewClient {
     private static final Logger logger = Logger.getLogger(LiquidityDriveNewClient.class);
-    private static final int BATCH_SIZE = 10;
     private static List<WorkItem> allWorkItems;
     private static Collection<List<WorkItem>> batches;
 
@@ -79,9 +79,13 @@ public class LiquidityDriveNewClient {
             LocalDate start = ApiConfig.START_DATE;
             LocalDate end = ApiConfig.END_DATE;
 
+            logger.infof("Range of dates: %s - %s", start, end);
+
             String[] isinsToProcess = Optional.ofNullable(System.getenv("ISINS"))
                 .map(s -> s.split("\\s*,\\s*"))
                 .orElse(ISINS);
+
+            logger.infof("Processing ISINS: %s", Arrays.toString(isinsToProcess));
 
             allWorkItems = generateWorkload(isinsToProcess, start, end);
 
@@ -100,20 +104,21 @@ public class LiquidityDriveNewClient {
             ExecutorService consumerExecutor = Executors.newFixedThreadPool(consumerThreads);
             CountDownLatch consumersLatch = new CountDownLatch(consumerThreads);
 
+            logger.infof("Number of work items: " + allWorkItems.size());
+
+            // --- 6. PARTITION WORKLOAD USING NATIVE JAVA AND START PRODUCERS ---
+            batches = IntStream.range(0, (allWorkItems.size() + BATCH_SIZE - 1) / BATCH_SIZE)
+                .mapToObj(i -> allWorkItems.subList(i * BATCH_SIZE, Math.min((i + 1) * BATCH_SIZE, allWorkItems.size())))
+                .collect(Collectors.toList());
+
+            logger.infof("Number of batches calculated: " + batches.size());
+
             try (CloseableHttpClient httpClient = isDryRun ? HttpClients.createDefault() : createHttpClient()) {
+
                 // --- 5. START CONSUMERS ---
                 for (int i = 0; i < consumerThreads; i++) {
                     consumerExecutor.submit(new CsvConsumer(workQueue, writers, consumersLatch));
                 }
-
-                logger.infof("Number of work items: " + allWorkItems.size());
-
-                // --- 6. PARTITION WORKLOAD USING NATIVE JAVA AND START PRODUCERS ---
-                batches = IntStream.range(0, (allWorkItems.size() + BATCH_SIZE - 1) / BATCH_SIZE)
-                    .mapToObj(i -> allWorkItems.subList(i * BATCH_SIZE, Math.min((i + 1) * BATCH_SIZE, allWorkItems.size())))
-                    .collect(Collectors.toList());
-
-                logger.infof("Number of batches calculated: " + batches.size());
 
                 List<CompletableFuture<Void>> producerFutures = batches.stream()
                     .map(batch -> CompletableFuture.runAsync(() -> {
