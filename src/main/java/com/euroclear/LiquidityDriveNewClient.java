@@ -47,7 +47,7 @@ public class LiquidityDriveNewClient {
     );
 
     // Allow up to 5 concurrent requests
-    private static final Semaphore rateLimiter = new Semaphore(5);
+    private static final Semaphore rateLimiter = new Semaphore(10);
 
     public static void main(String[] args) throws Exception {
         logger.infof("Starting Euroclear Liquidity Drive Client");
