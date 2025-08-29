@@ -162,7 +162,7 @@ public class LiquidityDriveNewClient {
 
                 logger.infof("Generated %s total work items to process.", allWorkItems.size());
                 logger.infof("Processed %d batches containing %d records", batches.size(), BATCH_SIZE);
-                logger.infof("Number of ISIN processed: %d", isinsToProcess);
+                logger.infof("Number of ISIN processed: %d", isinsToProcess.length);
                 processingDuration(startTime);
             }
         } // Error writer is automatically closed here by try-with-resources
