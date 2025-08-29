@@ -45,6 +45,9 @@ public class LiquidityDriveNewClient {
         HttpStatus.SC_TOO_MANY_REQUESTS // 429
     );
 
+    // Allow up to 5 concurrent requests
+    private static final Semaphore rateLimiter = new Semaphore(5);
+
     public static void main(String[] args) throws Exception {
         logger.infof("Starting Euroclear Liquidity Drive Client");
 
@@ -176,13 +179,9 @@ public class LiquidityDriveNewClient {
         String apiToken = isDryRun ? null : getAccessTokenAsync(false).get();
 
         for (WorkItem workItem : batch) {
-            try {
-                Thread.sleep(SLEEP_TIME_MS);
-            } catch (InterruptedException e) {
-                // Preserve the interrupted status if the sleep is interrupted
-                Thread.currentThread().interrupt();
-                logger.warn("Dry-run sleep was interrupted.");
-            }
+
+            rateLimiter.acquire(); // This will block until a permit is available
+
             // -------------------------------------------------
 
             String requestUrl;
@@ -232,6 +231,10 @@ public class LiquidityDriveNewClient {
                 logger.warnf("Received status [%d] for ISIN %s on %s", statusCode, workItem.isin(), workItem.date());
             } catch (Exception e) {
                 logger.errorf("HTTP request failed for ISIN %s on %s: %s", workItem.isin(), workItem.date(), e.getMessage());
+            } finally {
+                // This block runs after the request is finished
+                Thread.sleep(SLEEP_TIME_MS);
+                rateLimiter.release(); // Release the permit for the next thread
             }
         }
     }
