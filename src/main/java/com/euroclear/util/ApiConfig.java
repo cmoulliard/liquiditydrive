@@ -49,7 +49,7 @@ public class ApiConfig {
 
         // Sleep Time
         SLEEP_TIME_MS = Optional
-            .ofNullable(getEnvOrExit("SLEEP_TIME_MS"))
+            .ofNullable(System.getenv("SLEEP_TIME_MS"))
             .map(Long::parseLong)
             .orElse(1000L);
     }
