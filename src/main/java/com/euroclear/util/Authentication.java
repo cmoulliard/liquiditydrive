@@ -22,6 +22,7 @@ import java.security.cert.X509Certificate;
 import java.util.Collections;
 import java.util.Date;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 
 import static com.euroclear.LiquidityDriveNewClient.isDryRun;
 import static com.euroclear.util.ApiConfig.*;
@@ -101,26 +102,40 @@ public class Authentication {
 
         try {
             // Check if the token doesn't exist or is expired.
-            // We add a 5-minute buffer to be safe and renew it before it actually expires.
-            if (token == null || token.expiresOnDate().before(new Date(System.currentTimeMillis() - TOKEN_EXPIRATION_SECOND))) {
-                if (!isDryRun) {
-                    ClientCredentialParameters parameters = ClientCredentialParameters.builder(scopes).build();
-                    IAuthenticationResult result = app.acquireToken(parameters).get();
-                    logger.warnf("### Thread - %s, Acquired an Euroclear ApiToken: %s - Expiring on: %s", Thread.currentThread().getName(), result.accessToken(), result.expiresOnDate());
-                    token = result;
-                    currentToken.set(result);
-                } else {
-                    IAuthenticationResult result = new SimpleAuthentication(Long.parseLong("20")); // Timeout in seconds
-                    logger.warnf("### Thread - %s, Acquired a dummy ApiToken: %s - Expiring on: %s", Thread.currentThread().getName(), result.accessToken(), result.expiresOnDate());
+            if (token == null) {
+                logger.infof("### Thread - %s, No token found. Acquiring new token...", Thread.currentThread().getName());
+                IAuthenticationResult result = createAuthenticationResult();
+                token = result;
+                currentToken.set(result);
+            } else {
+                Long futureExpiredDate = token.expiresOnDate().getTime();
+                Long currentTime = System.currentTimeMillis();
+                if (currentTime >= (futureExpiredDate - TOKEN_EXPIRATION_SECOND)) {
+                    logger.infof("### Thread - %s - acquiring a new token as renewal time is over: %s. Current time: %s", Thread.currentThread().getName(),token.expiresOnDate(),new Date(currentTime));
+                    IAuthenticationResult result = createAuthenticationResult();
                     token = result;
                     currentToken.set(result);
                 }
             }
             return token.accessToken();
+
         } catch (Exception e) {
             handleAuthenticationError(e);
             throw new RuntimeException("Failed to acquire token", e);
         }
+    }
+
+    private static IAuthenticationResult createAuthenticationResult() throws ExecutionException, InterruptedException {
+        IAuthenticationResult result;
+        if (!isDryRun) {
+            ClientCredentialParameters parameters = ClientCredentialParameters.builder(scopes).build();
+            result = app.acquireToken(parameters).get();
+        } else {
+            // Add 20s to the current time
+            result = new SimpleAuthentication(20000L);
+        }
+        logger.infof("### Thread - %s, Token: %s - expiring on: %s", Thread.currentThread().getName(), result.accessToken(), result.expiresOnDate());
+        return result;
     }
 
     /**

@@ -50,9 +50,6 @@ public class LiquidityDriveNewClient {
 
     public static boolean isDryRun = false;
 
-    // Allow up to 5 concurrent requests
-    //private static final Semaphore rateLimiter = new Semaphore(1);
-
     public static void main(String[] args) throws Exception {
         logger.info("####################################");
         logger.info("### Starting Euroclear Liquidity Drive Client");
@@ -191,10 +188,7 @@ public class LiquidityDriveNewClient {
         logger.infof("### Processing %d work items...", batch.size());
 
         for (WorkItem workItem : batch) {
-            //rateLimiter.acquire(); // This will block until a permit is available
 
-            // Only get a token if not in dry-run mode
-            //String apiToken = isDryRun ? null : getAccessTokenAsync(false).get();
             String apiToken = getAccessTokenForCurrentThread();
 
             // -------------------------------------------------
@@ -249,7 +243,6 @@ public class LiquidityDriveNewClient {
                 // This block runs after the request is finished
                 logger.infof("### Sleeping thread - %s for: %d milli seconds",Thread.currentThread().getName(), SLEEP_TIME_MS);
                 Thread.sleep(SLEEP_TIME_MS);
-                //rateLimiter.release(); // Release the permit for the next thread
             }
         }
     }

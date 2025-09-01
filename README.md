@@ -33,6 +33,7 @@ keytool -importcert -alias "euroclear_root_ca" -file "conf/euroclear-root-ca.crt
 4. **Euroclean LiquiDrive Application**: 
    - `LIQUIDITY_DRIVE_ADDRESS`: https://liquiditydrive.eis.euroclear.com`
    - `SLEEP_TIME_MS`: 1000 milliseconds. Sleep time before executing new HTTP requests
+   - `TOKEN_EXPIRATION_SECOND`: 1800. Expiring time in seconds to request a new Token. That corresponds to renewal time.
 
    - `START_DATE`: Start date to collect securities' data. Format is "yyyy-mm-dd"
    - `END_DATE`: End date to collect securities' data. Format is "yyyy-mm-dd"

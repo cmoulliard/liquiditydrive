@@ -56,11 +56,11 @@ public class ApiConfig {
             .map(s -> Long.parseLong(s))
             .orElse(1000L);
 
-        // Token Euroclear expiration time
+        // Token Euroclear expiration time. Default: 10 min - 600s - 600000ms
         TOKEN_EXPIRATION_SECOND = Optional
             .ofNullable(System.getenv("TOKEN_EXPIRATION_SECOND"))
             .map(s -> Long.parseLong(s) * 1000)
-            .orElse(1000L);
+            .orElse(600000L);
     }
 
     public static String getEnvOrExit(String name) {
