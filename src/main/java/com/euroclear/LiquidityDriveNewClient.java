@@ -9,6 +9,7 @@ import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.core5.http.HttpStatus;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.jboss.logging.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.URLEncoder;
@@ -35,6 +36,7 @@ import static com.euroclear.util.LiquidityRecord.populateHeaders;
 
 public class LiquidityDriveNewClient {
     private static final Logger logger = Logger.getLogger(LiquidityDriveNewClient.class);
+    private static final org.slf4j.Logger log = LoggerFactory.getLogger(LiquidityDriveNewClient.class);
     private static List<WorkItem> allWorkItems;
     private static Collection<List<WorkItem>> batches;
     private static String[] isinsToProcess;
@@ -46,22 +48,24 @@ public class LiquidityDriveNewClient {
         HttpStatus.SC_TOO_MANY_REQUESTS // 429
     );
 
+    public static boolean isDryRun = false;
+
     // Allow up to 5 concurrent requests
-    private static final Semaphore rateLimiter = new Semaphore(10);
+    private static final Semaphore rateLimiter = new Semaphore(1);
 
     public static void main(String[] args) throws Exception {
-        logger.infof("Starting Euroclear Liquidity Drive Client");
+        logger.info("### Starting Euroclear Liquidity Drive Client");
 
         // --- 1. SETUP ---
         Instant startTime = Instant.now();
-        final boolean isDryRun = "true".equalsIgnoreCase(System.getenv("DRY_RUN"));
+        isDryRun = "true".equalsIgnoreCase(System.getenv("DRY_RUN"));
 
         // Load external env variables
         loadEnvironmentVariables();
 
         if (isDryRun) {
             logger.infof("<<<<< RUNNING IN DRY-RUN MODE >>>>>");
-            logger.infof("Connecting to http://localhost:8080. No authentication will be used.");
+            logger.infof("### Connecting to http://localhost:8080. No authentication will be used.");
         } else {
             // Create the Microsoft ConfidentialClientApplication
             createConfidentialClientApplication();
@@ -71,6 +75,21 @@ public class LiquidityDriveNewClient {
         Path outDir = Paths.get(System.getProperty("user.dir"), "out");
         Files.createDirectories(outDir);
 
+        // --- 2. GENERATE WORKLOAD ---
+        LocalDate start = ApiConfig.START_DATE;
+        LocalDate end = ApiConfig.END_DATE;
+
+        logger.infof("### Range of dates: %s - %s", start, end);
+
+        isinsToProcess = Optional.ofNullable(System.getenv("ISINS"))
+            .map(s -> s.split("\\s*,\\s*"))
+            .orElse(ISINS);
+
+        logger.infof("### Processing ISINS: %s", Arrays.toString(isinsToProcess));
+
+        allWorkItems = generateWorkload(isinsToProcess, start, end);
+        logger.infof("### Work items: %d", allWorkItems.size());
+
         // --- 2. CREATE ERROR LOG WRITER ---
         Path errorLogPath = outDir.resolve("error-log.csv");
         try (CsvFileWriter errorWriter = new CsvFileWriter(errorLogPath)) {
@@ -78,20 +97,6 @@ public class LiquidityDriveNewClient {
                 errorWriter.writeLine("\"ISIN\",\"Date\",\"ErrorCode\"");
                 errorWriter.flush();
             }
-
-            // --- 3. GENERATE WORKLOAD ---
-            LocalDate start = ApiConfig.START_DATE;
-            LocalDate end = ApiConfig.END_DATE;
-
-            logger.infof("Range of dates: %s - %s", start, end);
-
-            isinsToProcess = Optional.ofNullable(System.getenv("ISINS"))
-                .map(s -> s.split("\\s*,\\s*"))
-                .orElse(ISINS);
-
-            logger.infof("Processing ISINS: %s", Arrays.toString(isinsToProcess));
-
-            allWorkItems = generateWorkload(isinsToProcess, start, end);
 
             // --- 3. PRE-CREATE CSV WRITERS ---
             // Initialize headers as needed for each CSV file
@@ -101,23 +106,22 @@ public class LiquidityDriveNewClient {
             Map<String, CsvFileWriter> writers = createMonthlyWriters(start, end, outDir);
 
             // --- 4. SETUP PRODUCER-CONSUMER INFRASTRUCTURE ---
-            BlockingQueue<QueueItem> workQueue = new LinkedBlockingQueue<>(10000); // Bounded queue
-            ExecutorService producerExecutor = Executors.newVirtualThreadPerTaskExecutor();
+            int producerThreads = Math.max(1, Runtime.getRuntime().availableProcessors() / 2);
+            ExecutorService producerExecutor = Executors.newFixedThreadPool(producerThreads);
 
+            BlockingQueue<QueueItem> workQueue = new LinkedBlockingQueue<>(10000); // Bounded queue
             int consumerThreads = Math.max(1, Runtime.getRuntime().availableProcessors() / 2);
-            logger.infof("Number of consumer threads: %d", consumerThreads);
+            logger.infof("### Number of consumer threads: %d", consumerThreads);
 
             ExecutorService consumerExecutor = Executors.newFixedThreadPool(consumerThreads);
             CountDownLatch consumersLatch = new CountDownLatch(consumerThreads);
-
-            logger.infof("Number of work items: %d" + allWorkItems.size());
 
             // --- 6. PARTITION WORKLOAD USING NATIVE JAVA AND START PRODUCERS ---
             batches = IntStream.range(0, (allWorkItems.size() + BATCH_SIZE - 1) / BATCH_SIZE)
                 .mapToObj(i -> allWorkItems.subList(i * BATCH_SIZE, Math.min((i + 1) * BATCH_SIZE, allWorkItems.size())))
                 .collect(Collectors.toList());
 
-            logger.infof("Number of batches calculated: %d" + batches.size());
+            logger.infof("### Number of batches calculated: %d", batches.size());
 
             try (CloseableHttpClient httpClient = isDryRun ? HttpClients.createDefault() : createHttpClient()) {
 
@@ -144,7 +148,10 @@ public class LiquidityDriveNewClient {
                 e.printStackTrace();
             } finally {
                 // --- 7. SHUTDOWN ---
-                logger.infof("Signaling consumers to shut down...");
+                logger.infof("### Shutting down the producers ...");
+                producerExecutor.shutdown();
+
+                logger.infof("### Signaling consumers to shut down...");
                 for (int i = 0; i < consumerThreads; i++) {
                     workQueue.put(new QueueItem("POISON_PILL", null, null));
                 }
@@ -159,10 +166,11 @@ public class LiquidityDriveNewClient {
                         logger.error("Error closing writer", e);
                     }
                 });
-
+                logger.info("####################################");
                 logger.infof("Generated %s total work items to process.", allWorkItems.size());
                 logger.infof("Processed %d batches containing %d records", batches.size(), BATCH_SIZE);
                 logger.infof("Number of ISIN processed: %d", isinsToProcess.length);
+                logger.info("####################################");
                 processingDuration(startTime);
             }
         } // Error writer is automatically closed here by try-with-resources
@@ -176,15 +184,16 @@ public class LiquidityDriveNewClient {
     }
 
     private static void processWorkBatch(List<WorkItem> batch, CloseableHttpClient httpClient, BlockingQueue<QueueItem> queue, boolean isDryRun, CsvFileWriter errorWriter) throws Exception {
-        // Only get a token if not in dry-run mode
-        String apiToken = isDryRun ? null : getAccessTokenAsync(false).get();
+        logger.infof("### Processing %d work items...", batch.size());
 
         for (WorkItem workItem : batch) {
-
             rateLimiter.acquire(); // This will block until a permit is available
 
-            // -------------------------------------------------
+            // Only get a token if not in dry-run mode
+            //String apiToken = isDryRun ? null : getAccessTokenAsync(false).get();
+            String apiToken = getAccessTokenForCurrentThread();
 
+            // -------------------------------------------------
             String requestUrl;
             String dateString = workItem.date().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
             String encodedIsin = URLEncoder.encode(workItem.isin(), StandardCharsets.UTF_8);
@@ -229,11 +238,12 @@ public class LiquidityDriveNewClient {
                         }
                     }
                 }
-                logger.warnf("Received status [%d] for ISIN %s on %s", statusCode, workItem.isin(), workItem.date());
+                logger.infof("Received status [%d] for ISIN %s on %s", statusCode, workItem.isin(), workItem.date());
             } catch (Exception e) {
                 logger.errorf("HTTP request failed for ISIN %s on %s: %s", workItem.isin(), workItem.date(), e.getMessage());
             } finally {
                 // This block runs after the request is finished
+                logger.infof("### Sleeping thread - %s for: %d seconds",Thread.currentThread().getName(), SLEEP_TIME_MS / 1000);
                 Thread.sleep(SLEEP_TIME_MS);
                 rateLimiter.release(); // Release the permit for the next thread
             }

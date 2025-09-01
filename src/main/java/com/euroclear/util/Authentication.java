@@ -22,18 +22,14 @@ import java.security.cert.X509Certificate;
 import java.util.Collections;
 import java.util.Date;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.atomic.AtomicReference;
 
+import static com.euroclear.LiquidityDriveNewClient.isDryRun;
 import static com.euroclear.util.ApiConfig.*;
 
 public class Authentication {
 
     private static final Logger logger = Logger.getLogger(Authentication.class);
-
-    private static final Semaphore tokenGate = new Semaphore(1);
-    private static final AtomicReference<IAuthenticationResult> cachedAuth = new AtomicReference<>();
+    private static final ThreadLocal<IAuthenticationResult> currentToken = new ThreadLocal<>();
     private static Set<String> scopes = Collections.singleton(APPLICATION_ID + "/.default");
     private static IConfidentialClientApplication app;
 
@@ -100,30 +96,31 @@ public class Authentication {
             .build();
     }
 
-    public static CompletableFuture<String> getAccessTokenAsync(boolean forceRefresh) {
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                tokenGate.acquire();
-                try {
-                    boolean needsRefresh = forceRefresh ||
-                        cachedAuth.get() == null ||
-                        cachedAuth.get().expiresOnDate().before(new Date(System.currentTimeMillis() + 180000)); // 3 minutes
+    public static String getAccessTokenForCurrentThread() {
+        IAuthenticationResult token = currentToken.get();
 
-                    if (needsRefresh) {
-                        ClientCredentialParameters parameters = ClientCredentialParameters.builder(scopes).build();
-                        IAuthenticationResult result = app.acquireToken(parameters).get();
-                        logger.warnf("Euroclear ApiToken acquired: %s",result.accessToken());
-                        cachedAuth.set(result);
-                    }
-                    return cachedAuth.get().accessToken();
-                } finally {
-                    tokenGate.release();
+        try {
+            // Check if the token doesn't exist or is expired.
+            // We add a 5-minute buffer to be safe and renew it before it actually expires.
+            if (token == null || token.expiresOnDate().before(new Date(System.currentTimeMillis() - TOKEN_EXPIRATION_SECOND))) {
+                if (!isDryRun) {
+                    ClientCredentialParameters parameters = ClientCredentialParameters.builder(scopes).build();
+                    IAuthenticationResult result = app.acquireToken(parameters).get();
+                    logger.warnf("### Thread - %s, Acquired an Euroclear ApiToken: %s - Expiring on: %s", Thread.currentThread().getName(), result.accessToken(), result.expiresOnDate());
+                    token = result;
+                    currentToken.set(result);
+                } else {
+                    IAuthenticationResult result = new SimpleAuthentication(Long.parseLong("20")); // Timeout in seconds
+                    logger.warnf("### Thread - %s, Acquired a dummy ApiToken: %s - Expiring on: %s", Thread.currentThread().getName(), result.accessToken(), result.expiresOnDate());
+                    token = result;
+                    currentToken.set(result);
                 }
-            } catch (Exception e) {
-                handleAuthenticationError(e);
-                throw new RuntimeException("Failed to acquire token", e);
             }
-        });
+            return token.accessToken();
+        } catch (Exception e) {
+            handleAuthenticationError(e);
+            throw new RuntimeException("Failed to acquire token", e);
+        }
     }
 
     /**

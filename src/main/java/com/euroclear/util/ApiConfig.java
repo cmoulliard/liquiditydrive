@@ -29,6 +29,9 @@ public class ApiConfig {
     // Sleep time to wait before to execute a new HTTP request
     public static Long SLEEP_TIME_MS;
 
+    // Token Euroclear expiration time
+    public static Long TOKEN_EXPIRATION_SECOND;
+
     public ApiConfig() {
         throw new UnsupportedOperationException("This is a utility class and cannot be instantiated");
     }
@@ -50,7 +53,13 @@ public class ApiConfig {
         // Sleep Time
         SLEEP_TIME_MS = Optional
             .ofNullable(System.getenv("SLEEP_TIME_MS"))
-            .map(Long::parseLong)
+            .map(s -> Long.parseLong(s))
+            .orElse(1000L);
+
+        // Token Euroclear expiration time
+        TOKEN_EXPIRATION_SECOND = Optional
+            .ofNullable(System.getenv("TOKEN_EXPIRATION_SECOND"))
+            .map(s -> Long.parseLong(s) * 1000)
             .orElse(1000L);
     }
 
