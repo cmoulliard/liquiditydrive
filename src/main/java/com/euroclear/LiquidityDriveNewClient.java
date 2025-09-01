@@ -241,7 +241,7 @@ public class LiquidityDriveNewClient {
                 logger.errorf("HTTP request failed for ISIN %s on %s: %s", workItem.isin(), workItem.date(), e.getMessage());
             } finally {
                 // This block runs after the request is finished
-                logger.warnf("### Sleeping thread - %s for: %d milli seconds",Thread.currentThread().getName(), SLEEP_TIME_MS);
+                logger.debugf("### Sleeping thread - %s for: %d milli seconds",Thread.currentThread().getName(), SLEEP_TIME_MS);
                 Thread.sleep(SLEEP_TIME_MS);
             }
         }
