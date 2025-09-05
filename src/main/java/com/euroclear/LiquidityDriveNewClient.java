@@ -227,9 +227,8 @@ public class LiquidityDriveNewClient {
                 request.setHeader("Accept", "application/json");
             }
 
-            //logger.infof("### Sleeping thread - %s for: %d milli seconds",Thread.currentThread().getName(), SLEEP_TIME_MS);
-            //Thread.sleep(SLEEP_TIME_MS);
-            //TimeUnit.SECONDS.sleep(5);
+            logger.debugf("### Sleeping thread - %s for: %d milli seconds",Thread.currentThread().getName(), SLEEP_TIME_MS);
+            Thread.sleep(SLEEP_TIME_MS);
 
             try (CloseableHttpResponse response = httpClient.execute(request)) {
                 int statusCode = response.getCode();
