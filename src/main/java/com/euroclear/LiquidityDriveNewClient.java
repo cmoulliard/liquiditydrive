@@ -105,9 +105,10 @@ public class LiquidityDriveNewClient {
             Map<String, CsvFileWriter> writers = createMonthlyWriters(start, end, outDir);
 
             // --- 4. SETUP PRODUCER-CONSUMER INFRASTRUCTURE ---
-            int producerThreads = Math.max(1, Runtime.getRuntime().availableProcessors() / 2);
-            ExecutorService producerExecutor = Executors.newFixedThreadPool(producerThreads);
-            logger.infof("### Number of producer threads: %d", producerThreads);
+            // int producerThreads = Math.max(1, Runtime.getRuntime().availableProcessors() / 2);
+            // ExecutorService producerExecutor = Executors.newFixedThreadPool(producerThreads);
+            // logger.infof("### Number of producer threads: %d", producerThreads);
+            ExecutorService producerExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
             BlockingQueue<QueueItem> workQueue = new LinkedBlockingQueue<>(10000); // Bounded queue
             int consumerThreads = Math.max(1, Runtime.getRuntime().availableProcessors() / 2);
@@ -140,9 +141,21 @@ public class LiquidityDriveNewClient {
                             logger.errorf("Error processing a batch: %s", e.getMessage());
                         }
                     }, producerExecutor))
-                    .collect(Collectors.toList());
+                    .toList();
 
                 CompletableFuture.allOf(producerFutures.toArray(new CompletableFuture[0])).join();
+
+                // Without using batches: this is too slooowww
+                /*
+                CompletableFuture<Void> processingFuture = CompletableFuture.runAsync(() -> {
+                    try {
+                        processWorkBatch(allWorkItems, httpClient, workQueue, isDryRun, errorWriter);
+                    } catch (Exception e) {
+                        logger.errorf("Error processing a batch: %s", e.getMessage());
+                    }
+                }, producerExecutor);
+                processingFuture.join();
+                */
                 logger.infof("All producers have finished submitting work.");
             } catch (Exception e) {
                 logger.errorf("Error occurs during the processing: %s", e.getMessage());
@@ -168,7 +181,7 @@ public class LiquidityDriveNewClient {
                     }
                 });
                 logger.info("####################################");
-                logger.infof("Generated %s total work items to process.", allWorkItems.size());
+                logger.infof("Generated %s requests to process.", allWorkItems.size());
                 logger.infof("Processed %d batches containing %d records", batches.size(), BATCH_SIZE);
                 logger.infof("Number of ISIN processed: %d", isinsToProcess.length);
                 logger.info("####################################");
@@ -214,6 +227,10 @@ public class LiquidityDriveNewClient {
                 request.setHeader("Accept", "application/json");
             }
 
+            //logger.infof("### Sleeping thread - %s for: %d milli seconds",Thread.currentThread().getName(), SLEEP_TIME_MS);
+            //Thread.sleep(SLEEP_TIME_MS);
+            //TimeUnit.SECONDS.sleep(5);
+
             try (CloseableHttpResponse response = httpClient.execute(request)) {
                 int statusCode = response.getCode();
                 if (statusCode == HttpStatus.SC_OK && response.getEntity() != null) {
@@ -239,10 +256,6 @@ public class LiquidityDriveNewClient {
                 logger.infof("Received status [%d] for ISIN %s on %s", statusCode, workItem.isin(), workItem.date());
             } catch (Exception e) {
                 logger.errorf("HTTP request failed for ISIN %s on %s: %s", workItem.isin(), workItem.date(), e.getMessage());
-            } finally {
-                // This block runs after the request is finished
-                logger.debugf("### Sleeping thread - %s for: %d milli seconds",Thread.currentThread().getName(), SLEEP_TIME_MS);
-                Thread.sleep(SLEEP_TIME_MS);
             }
         }
     }
